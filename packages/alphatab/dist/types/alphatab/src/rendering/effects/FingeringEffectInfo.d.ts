@@ -1,0 +1,19 @@
+import type { Beat } from "./../../model/Beat";
+import { NotationElement } from "./../../NotationSettings";
+import type { BarRendererBase } from "./../BarRendererBase";
+import { EffectBarGlyphSizing } from "./../EffectBarGlyphSizing";
+import type { EffectGlyph } from "./../glyphs/EffectGlyph";
+import { EffectInfo } from "./../EffectInfo";
+import type { Settings } from "./../../Settings";
+/**
+ * @internal
+ */
+export declare class FingeringEffectInfo extends EffectInfo {
+    get notationElement(): NotationElement;
+    get hideOnMultiTrack(): boolean;
+    get canShareBand(): boolean;
+    get sizingMode(): EffectBarGlyphSizing;
+    shouldCreateGlyph(settings: Settings, beat: Beat): boolean;
+    createNewGlyph(renderer: BarRendererBase, beat: Beat): EffectGlyph;
+    canExpand(_from: Beat, _to: Beat): boolean;
+}

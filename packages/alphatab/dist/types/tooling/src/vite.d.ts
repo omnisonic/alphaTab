@@ -1,0 +1,14 @@
+import { type RollupTypescriptOptions } from '@rollup/plugin-typescript';
+import type { OutputChunk } from 'rollup';
+import ts from 'typescript';
+import { type UserConfig } from 'vite';
+export declare function licenseHeaderPlugin(): import("rollup").Plugin<any>;
+export declare function defineEsmAndCommonJsConfig(entry: string): import("vite").UserConfigFnObject;
+export declare function defaultBuildUserConfig(): UserConfig;
+export declare function enableTypeScript(config: UserConfig, o?: Partial<RollupTypescriptOptions>, types?: boolean): void;
+export declare function umd(config: UserConfig, projectDir: string, name: string, entry: string, tsOptions?: RollupTypescriptOptions, withMin?: boolean): void;
+export declare function commonjs(config: UserConfig, projectDir: string, name: string, entry: string, tsOptions?: RollupTypescriptOptions): void;
+export declare function esm(config: UserConfig, projectDir: string, name: string, entry: string, tsOptions?: RollupTypescriptOptions, shouldCreateDts?: (chunk: OutputChunk) => boolean, withMin?: boolean): void;
+export declare function dtsPathsTransformer(mapping?: Record<string, string>, externals?: (string | RegExp)[]): (context: ts.TransformationContext) => (source: ts.SourceFile | ts.Bundle) => ts.SourceFile | ts.Bundle;
+export declare function defineEsmCjsLibConfig(setup?: (config: UserConfig) => void): import("vite").UserConfigFnObject;
+export declare function defineEsmLibConfig(setup?: (config: UserConfig) => void): import("vite").UserConfigFnObject;

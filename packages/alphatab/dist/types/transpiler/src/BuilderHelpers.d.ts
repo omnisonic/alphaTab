@@ -1,0 +1,13 @@
+import ts from 'typescript';
+export declare function transpileFilter(file: string): boolean;
+export declare function setMethodBody(m: ts.MethodDeclaration, body: ts.FunctionBody): ts.MethodDeclaration;
+export declare function createNodeFromSource<T extends ts.Node>(source: string, kind: ts.SyntaxKind): T;
+export declare function unwrapArrayItemType(type: ts.Type, typeChecker: ts.TypeChecker): ts.Type | null;
+export declare function isPrimitiveType(type: ts.Type | null): boolean;
+export declare function isNumberType(type: ts.Type | null): boolean;
+export declare function isEnumType(type: ts.Type): boolean | undefined;
+export declare function wrapToNonNull(isNullableType: boolean, expr: ts.Expression, factory: ts.NodeFactory): ts.Expression;
+export declare function hasFlag(type: ts.Type, flag: ts.TypeFlags): boolean;
+export declare function isMap(type: ts.Type | null): boolean;
+export declare function isSet(type: ts.Type | null): boolean;
+export declare function cloneTypeNode<T extends ts.Node>(node: T): T;
