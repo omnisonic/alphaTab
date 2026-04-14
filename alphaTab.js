@@ -1,5 +1,5 @@
 /*!
- * alphaTab v1.9.0 (feature/pointer-events-touch-support, build 0)
+ * alphaTab v1.9.0 (develop, build 0)
  *
  * Copyright © 2026, Daniel Kuschny and Contributors, All rights reserved.
  *
@@ -210,8 +210,8 @@
      */
     class VersionInfo {
         static version = '1.9.0';
-        static date = '2026-04-04T02:57:53.074Z';
-        static commit = '88befeb258defd016552acbf537aac9626e030e2';
+        static date = '2026-04-14T21:56:02.075Z';
+        static commit = 'b1f24a134f47c4d92759def0e715c5337e821fbf';
         static print(print) {
             print(`alphaTab ${VersionInfo.version}`);
             print(`commit: ${VersionInfo.commit}`);
@@ -55082,9 +55082,9 @@
                     const nativeListener = e => {
                         value(new BrowserMouseEventArgs(e));
                     };
-                    this.element.addEventListener('pointerdown', nativeListener, true);
+                    this.element.addEventListener('mousedown', nativeListener, true);
                     return () => {
-                        this.element.removeEventListener('pointerdown', nativeListener, true);
+                        this.element.removeEventListener('mousedown', nativeListener, true);
                     };
                 },
                 off: (_value) => {
@@ -55095,9 +55095,9 @@
                     const nativeListener = e => {
                         value(new BrowserMouseEventArgs(e));
                     };
-                    this.element.addEventListener('pointerup', nativeListener, true);
+                    this.element.addEventListener('mouseup', nativeListener, true);
                     return () => {
-                        this.element.removeEventListener('pointerup', nativeListener, true);
+                        this.element.removeEventListener('mouseup', nativeListener, true);
                     };
                 },
                 off: (_value) => {
@@ -55108,9 +55108,9 @@
                     const nativeListener = e => {
                         value(new BrowserMouseEventArgs(e));
                     };
-                    this.element.addEventListener('pointermove', nativeListener, true);
+                    this.element.addEventListener('mousemove', nativeListener, true);
                     return () => {
-                        this.element.removeEventListener('pointermove', nativeListener, true);
+                        this.element.removeEventListener('mousemove', nativeListener, true);
                     };
                 },
                 off: (_) => {
@@ -62375,9 +62375,11 @@
     class ReservedLayoutAreaSlot {
         topY = 0;
         bottomY = 0;
-        constructor(topY, bottomY) {
+        stemDirection = BeamDirection.Up;
+        constructor(topY, bottomY, stemDirection) {
             this.topY = topY;
             this.bottomY = bottomY;
+            this.stemDirection = stemDirection;
         }
     }
     /**
@@ -62391,8 +62393,8 @@
         constructor(beat) {
             this.beat = beat;
         }
-        addSlot(topY, bottomY) {
-            this.slots.push(new ReservedLayoutAreaSlot(topY, bottomY));
+        addSlot(topY, bottomY, stemDirection = BeamDirection.Up) {
+            this.slots.push(new ReservedLayoutAreaSlot(topY, bottomY, stemDirection));
             if (this.topY === -1e3) {
                 this.topY = topY;
                 this.bottomY = bottomY;
@@ -62437,14 +62439,14 @@
             }
             return [minY, maxY];
         }
-        reserveBeatSlot(beat, topY, bottomY) {
+        reserveBeatSlot(beat, topY, bottomY, stemDirection = BeamDirection.Up) {
             if (topY === bottomY) {
                 return;
             }
             if (!this.reservedLayoutAreasByDisplayTime.has(beat.displayStart)) {
                 this.reservedLayoutAreasByDisplayTime.set(beat.displayStart, new ReservedLayoutArea(beat));
             }
-            this.reservedLayoutAreasByDisplayTime.get(beat.displayStart).addSlot(topY, bottomY);
+            this.reservedLayoutAreasByDisplayTime.get(beat.displayStart).addSlot(topY, bottomY, stemDirection);
             if (beat.isRest) {
                 this.registerRest(beat);
             }
@@ -62458,54 +62460,45 @@
             }
         }
         applyRestCollisionOffset(beat, currentY, linesToPixel) {
-            // for the first voice we do not need collision detection on rests
-            // we just place it normally
-            if (beat.voice.index > 0) {
-                // From the Spring-Rod poisitioning we have the guarantee
-                // that 2 timewise subsequent elements can never collide
-                // on the horizontal axis. So we only need to check for collisions
-                // of elements at the current time position
-                // if there are none, we can just use the line
-                if (this.reservedLayoutAreasByDisplayTime.has(beat.playbackStart)) {
-                    // do check for collisions we need to obtain the range on which the
-                    // restglyph is placed
-                    // rest glyphs have their ancor
-                    const restSizes = BeamingHelper.computeLineHeightsForRest(beat.duration).map(i => i * linesToPixel);
-                    const oldRestTopY = currentY - restSizes[0];
-                    const oldRestBottomY = currentY + restSizes[1];
-                    let newRestTopY = oldRestTopY;
-                    const reservedSlots = this.reservedLayoutAreasByDisplayTime.get(beat.playbackStart);
-                    let hasCollision = false;
-                    for (const slot of reservedSlots.slots) {
-                        if ((oldRestTopY >= slot.topY && oldRestTopY <= slot.bottomY) ||
-                            (oldRestBottomY >= slot.topY && oldRestBottomY <= slot.bottomY)) {
-                            hasCollision = true;
-                            break;
-                        }
+            // From the Spring-Rod positioning we have the guarantee
+            // that 2 timewise subsequent elements can never collide
+            // on the horizontal axis. So we only need to check for collisions
+            // of elements at the current time position.
+            // if there are none, we can just use the default position.
+            if (this.reservedLayoutAreasByDisplayTime.has(beat.displayStart)) {
+                const restSizes = BeamingHelper.computeLineHeightsForRest(beat.duration).map(i => i * linesToPixel);
+                const oldRestTopY = currentY - restSizes[0];
+                const oldRestBottomY = currentY + restSizes[1];
+                let newRestTopY = oldRestTopY;
+                const reservedSlots = this.reservedLayoutAreasByDisplayTime.get(beat.displayStart);
+                let collidingSlot = null;
+                for (const slot of reservedSlots.slots) {
+                    if ((oldRestTopY >= slot.topY && oldRestTopY <= slot.bottomY) ||
+                        (oldRestBottomY >= slot.topY && oldRestBottomY <= slot.bottomY)) {
+                        collidingSlot = slot;
+                        break;
                     }
-                    if (hasCollision) {
-                        // second voice above, the others below
-                        if (beat.voice.index === 1) {
-                            // move rest above top position
-                            // TODO: rest must align with note lines
-                            newRestTopY = reservedSlots.topY - restSizes[1] - restSizes[0];
-                        }
-                        else {
-                            // move rest above top position
-                            // TODO: rest must align with note lines
-                            newRestTopY = reservedSlots.bottomY;
-                        }
-                        const newRestBottomY = newRestTopY + restSizes[0] + restSizes[1];
-                        // moving always happens in full stave spaces
-                        const staveSpace = linesToPixel * 2;
-                        const distanceInLines = Math.ceil(Math.abs(newRestTopY - oldRestTopY) / staveSpace);
-                        // register new min/max offsets
-                        reservedSlots.addSlot(newRestTopY, newRestBottomY);
-                        if (newRestTopY < oldRestTopY) {
-                            return distanceInLines * -staveSpace;
-                        }
-                        return distanceInLines * staveSpace;
+                }
+                if (collidingSlot) {
+                    const staveSpacePadding = linesToPixel * 2;
+                    if (collidingSlot.stemDirection === BeamDirection.Up) {
+                        // colliding notes have stems up: they occupy space above, rest displaces downward
+                        newRestTopY = reservedSlots.bottomY + staveSpacePadding;
                     }
+                    else {
+                        // colliding notes have stems down: they occupy space below, rest displaces upward
+                        newRestTopY = reservedSlots.topY - restSizes[1] - restSizes[0] - staveSpacePadding;
+                    }
+                    const newRestBottomY = newRestTopY + restSizes[0] + restSizes[1];
+                    // moving always happens in full stave spaces
+                    const staveSpace = linesToPixel * 2;
+                    const distanceInLines = Math.ceil(Math.abs(newRestTopY - oldRestTopY) / staveSpace);
+                    // register new min/max offsets
+                    reservedSlots.addSlot(newRestTopY, newRestBottomY);
+                    if (newRestTopY < oldRestTopY) {
+                        return distanceInLines * -staveSpace;
+                    }
+                    return distanceInLines * staveSpace;
                 }
             }
             return 0;
@@ -72233,7 +72226,7 @@
                     highestNotePosition = this.getHighestNoteY(NoteYPosition.Top);
                     lowestNotePosition = this.getLowestNoteY(NoteYPosition.BottomWithStem) + offset;
                 }
-                this.renderer.collisionHelper.reserveBeatSlot(this.container.beat, highestNotePosition, lowestNotePosition);
+                this.renderer.collisionHelper.reserveBeatSlot(this.container.beat, highestNotePosition, lowestNotePosition, direction);
             }
         }
         _createRestGlyphs() {
@@ -72252,15 +72245,7 @@
             restGlyph.beat = this.container.beat;
             this.addNormal(restGlyph);
             if (this.renderer.bar.isMultiVoice) {
-                if (this.container.beat.voice.index === 0) {
-                    const restSizes = BeamingHelper.computeLineHeightsForRest(this.container.beat.duration);
-                    const restTop = restGlyph.y - sr.getScoreHeight(restSizes[0]);
-                    const restBottom = restGlyph.y + sr.getScoreHeight(restSizes[1]);
-                    this.renderer.collisionHelper.reserveBeatSlot(this.container.beat, restTop, restBottom);
-                }
-                else {
-                    this.renderer.collisionHelper.registerRest(this.container.beat);
-                }
+                this.renderer.collisionHelper.registerRest(this.container.beat);
             }
             //
             // Note dots
