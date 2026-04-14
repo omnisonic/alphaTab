@@ -33,7 +33,6 @@ import { StringNumberContainerGlyph } from '@coderline/alphatab/rendering/glyphs
 import type { ScoreBarRenderer } from '@coderline/alphatab/rendering/ScoreBarRenderer';
 import type { ScoreBeatContainerGlyph } from '@coderline/alphatab/rendering/ScoreBeatContainerGlyph';
 import { BeamDirection } from '@coderline/alphatab/rendering/utils/BeamDirection';
-import { BeamingHelper } from '@coderline/alphatab/rendering/utils/BeamingHelper';
 import type { BeatBounds } from '@coderline/alphatab/rendering/utils/BeatBounds';
 import { ElementStyleHelper } from '@coderline/alphatab/rendering/utils/ElementStyleHelper';
 
@@ -293,7 +292,7 @@ export class ScoreBeatGlyph extends BeatOnNoteGlyphBase {
                 lowestNotePosition = this.getLowestNoteY(NoteYPosition.BottomWithStem) + offset;
             }
 
-            this.renderer.collisionHelper.reserveBeatSlot(this.container.beat, highestNotePosition, lowestNotePosition);
+            this.renderer.collisionHelper.reserveBeatSlot(this.container.beat, highestNotePosition, lowestNotePosition, direction);
         }
     }
 
@@ -319,14 +318,7 @@ export class ScoreBeatGlyph extends BeatOnNoteGlyphBase {
         this.addNormal(restGlyph);
 
         if (this.renderer.bar.isMultiVoice) {
-            if (this.container.beat.voice.index === 0) {
-                const restSizes = BeamingHelper.computeLineHeightsForRest(this.container.beat.duration);
-                const restTop = restGlyph.y - sr.getScoreHeight(restSizes[0]);
-                const restBottom = restGlyph.y + sr.getScoreHeight(restSizes[1]);
-                this.renderer.collisionHelper.reserveBeatSlot(this.container.beat, restTop, restBottom);
-            } else {
-                this.renderer.collisionHelper.registerRest(this.container.beat);
-            }
+            this.renderer.collisionHelper.registerRest(this.container.beat);
         }
 
         //
