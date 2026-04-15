@@ -210,8 +210,8 @@
      */
     class VersionInfo {
         static version = '1.9.0';
-        static date = '2026-04-14T21:56:02.075Z';
-        static commit = 'b1f24a134f47c4d92759def0e715c5337e821fbf';
+        static date = '2026-04-15T01:18:25.835Z';
+        static commit = '6f920af8cd99afbc2976a2abc94f89c778a111e8';
         static print(print) {
             print(`alphaTab ${VersionInfo.version}`);
             print(`commit: ${VersionInfo.commit}`);
@@ -52476,6 +52476,32 @@
                 this._player.setChannelVolume(track.playbackInfo.primaryChannel, volume);
                 this._player.setChannelVolume(track.playbackInfo.secondaryChannel, volume);
             }
+        }
+        /**
+         * Changes the GM program (instrument) of the given tracks and regenerates the MIDI.
+         * @param tracks The list of tracks to change.
+         * @param program The GM program number (0–127).
+         * @category Methods - Player
+         */
+        changeTrackProgram(tracks, program) {
+            for (const track of tracks) {
+                track.playbackInfo.program = program;
+                // Also update any per-beat instrument automations so MIDI regeneration picks them up
+                for (const staff of track.staves) {
+                    for (const bar of staff.bars) {
+                        for (const voice of bar.voices) {
+                            for (const beat of voice.beats) {
+                                for (const automation of beat.automations) {
+                                    if (automation.type === AutomationType.Instrument) {
+                                        automation.value = program;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            this.loadMidiForScore();
         }
         /**
          * Changes the given tracks to be played solo or not.
