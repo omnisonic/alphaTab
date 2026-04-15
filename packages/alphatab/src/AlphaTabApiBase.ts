@@ -48,6 +48,7 @@ import {
     ToNextBeatAnimatingCursorHandler
 } from '@coderline/alphatab/CursorHandler';
 import type { Beat } from '@coderline/alphatab/model/Beat';
+import { AutomationType } from '@coderline/alphatab/model/Automation';
 import { ModelUtils } from '@coderline/alphatab/model/ModelUtils';
 import type { Note } from '@coderline/alphatab/model/Note';
 import type { Score } from '@coderline/alphatab/model/Score';
@@ -1810,6 +1811,33 @@ export class AlphaTabApiBase<TSettings> {
             this._player.setChannelVolume(track.playbackInfo.primaryChannel, volume);
             this._player.setChannelVolume(track.playbackInfo.secondaryChannel, volume);
         }
+    }
+
+    /**
+     * Changes the GM program (instrument) of the given tracks and regenerates the MIDI.
+     * @param tracks The list of tracks to change.
+     * @param program The GM program number (0–127).
+     * @category Methods - Player
+     */
+    public changeTrackProgram(tracks: Track[], program: number): void {
+        for (const track of tracks) {
+            track.playbackInfo.program = program;
+            // Also update any per-beat instrument automations so MIDI regeneration picks them up
+            for (const staff of track.staves) {
+                for (const bar of staff.bars) {
+                    for (const voice of bar.voices) {
+                        for (const beat of voice.beats) {
+                            for (const automation of beat.automations) {
+                                if (automation.type === AutomationType.Instrument) {
+                                    automation.value = program;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        this.loadMidiForScore();
     }
 
     /**
