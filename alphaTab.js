@@ -210,7 +210,7 @@
      */
     class VersionInfo {
         static version = '1.9.0';
-        static date = '2026-04-26T23:25:19.006Z';
+        static date = '2026-04-26T23:52:10.109Z';
         static commit = '844f79f918b1a26ab54a71f63d734d0b807246d1';
         static print(print) {
             print(`alphaTab ${VersionInfo.version}`);
