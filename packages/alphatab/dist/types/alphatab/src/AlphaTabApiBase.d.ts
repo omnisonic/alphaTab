@@ -1162,6 +1162,13 @@ export declare class AlphaTabApiBase<TSettings> {
      */
     changeTrackVolume(tracks: Track[], volume: number): void;
     /**
+     * Changes the GM program (instrument) of the given tracks and regenerates the MIDI.
+     * @param tracks The list of tracks to change.
+     * @param program The GM program number (0–127).
+     * @category Methods - Player
+     */
+    changeTrackProgram(tracks: Track[], program: number): void;
+    /**
      * Changes the given tracks to be played solo or not.
      * @param tracks The list of tracks to play solo or not.
      * @param solo If set to true, the tracks will be added to the solo list. If false, they are removed.

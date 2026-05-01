@@ -105,15 +105,12 @@ declare class AlphaSynth extends AlphaSynthBase {
  * @public
  */
 declare class AlphaSynthBase implements IAlphaSynth {
-
-
     protected isSoundFontLoaded: boolean;
     private _isMidiLoaded;
     private _tickPosition;
     private _timePosition;
     private _metronomeVolume;
     private _countInVolume;
-
     protected midiEventsPlayedFilterSet: Set<MidiEventType>;
     private _notPlayedSamples;
     private _synthStopping;
@@ -149,7 +146,6 @@ declare class AlphaSynthBase implements IAlphaSynth {
     get isLooping(): boolean;
     set isLooping(value: boolean);
     destroy(): void;
-
     protected onSampleRequest(): void;
     play(): boolean;
     private _playInternal;
@@ -203,8 +199,6 @@ declare class AlphaSynthBase implements IAlphaSynth {
      * @lateinit
      */
     readonly playbackRangeChanged: IEventEmitterOfT<PlaybackRangeChangedEventArgs>;
-
-
     loadBackingTrack(_score: Score): void;
     updateSyncPoints(_syncPoints: BackingTrackSyncPoint[]): void;
 }
@@ -697,7 +691,6 @@ export declare class AlphaTabApiBase<TSettings> {
      */
     renderTracks(tracks: Track[], renderHints?: RenderHints): void;
     private _internalRenderTracks;
-
     private _appendRenderResult;
     private _updateRenderResult;
     /**
@@ -1449,6 +1442,13 @@ export declare class AlphaTabApiBase<TSettings> {
      * ```
      */
     changeTrackVolume(tracks: Track[], volume: number): void;
+    /**
+     * Changes the GM program (instrument) of the given tracks and regenerates the MIDI.
+     * @param tracks The list of tracks to change.
+     * @param program The GM program number (0–127).
+     * @category Methods - Player
+     */
+    changeTrackProgram(tracks: Track[], program: number): void;
     /**
      * Changes the given tracks to be played solo or not.
      * @param tracks The list of tracks to play solo or not.
@@ -2508,7 +2508,6 @@ export declare class AlphaTabApiBase<TSettings> {
      *
      */
     readonly error: IEventEmitterOfT<Error>;
-
     /**
      * This event is fired when all required data for playback is loaded and ready.
      * @remarks
@@ -3287,7 +3286,6 @@ declare interface AlphaTexArgumentList extends AlphaTexAstNode {
      * The close parenthesis token grouping the arguments.
      */
     closeParenthesis?: AlphaTexParenthesisCloseTokenNode;
-
     /**
      * A list of indices to signatures which were selected as candidates matching
      * this argument list.
@@ -3763,7 +3761,6 @@ declare class AlphaTexImporter extends ScoreImporter implements IAlphaTexImporte
     private _beatDuration;
     private _parseDuration;
     private _note;
-
     applyStaffNoteKind(staff: Staff, staffNoteKind: AlphaTexStaffNoteKind): void;
     private _noteEffects;
     private _handleTransposition;
@@ -3838,7 +3835,6 @@ declare interface AlphaTexMetaDataNode extends AlphaTexAstNode {
      * The optional properties defined for the metadata.
      */
     properties?: AlphaTexPropertiesNode;
-
 }
 
 /**
@@ -4003,7 +3999,6 @@ declare class AlphaTexParser {
     get lexerDiagnostics(): AlphaTexDiagnosticBag;
     readonly parserDiagnostics: AlphaTexDiagnosticBag;
     addParserDiagnostic(diagnostics: AlphaTexDiagnostic): void;
-
     constructor(source: string);
     read(): AlphaTexScoreNode;
     private _score;
@@ -4408,7 +4403,6 @@ declare class BackingTrackSyncPoint {
  */
 declare class Bar {
     private static _globalBarId;
-
     /**
      * Gets or sets the unique id of this bar.
      */
@@ -4520,7 +4514,6 @@ declare class Bar {
      * If specified, overrides the value from the stylesheet on score level.
      */
     barNumberDisplay?: BarNumberDisplay;
-
     /**
      * The bar line to draw on the left side of the bar with an "automatic" type resolved to the actual one.
      * @param isFirstOfSystem  Whether the bar is the first one in the system.
@@ -4787,12 +4780,6 @@ declare class BeamingRules {
      * The map value defines the "groups" placed within the sliced.
      */
     groups: Map<Duration, number[]>;
-
-
-
-
-
-
 }
 
 /**
@@ -4805,7 +4792,6 @@ declare class BeamingRules {
  */
 declare class Beat {
     private static _globalBeatId;
-
     /**
      * Gets or sets the unique id of this beat.
      * @clone_ignore
@@ -7325,7 +7311,6 @@ declare class EndOfTrackEvent extends MidiEvent {
  */
 export declare class EngravingSettings {
     private static _bravuraDefaults?;
-
     /**
      * A {@link EngravingSettings} copy filled with the settings of the Bravura font used by default in alphaTab.
      */
@@ -7505,14 +7490,12 @@ export declare class EngravingSettings {
      * @smufl 1.4
      */
     glyphHeights: Map<MusicFontSymbol, number>;
-
     /**
      * Fills the engraving settings from the provided smufl metdata.
      * @param smufl The metadata shipped together with the SMuFL fonts.
      * @param musicFontSize The font size to configure in alphaTab for the music font.
      */
     fillFromSmufl(smufl: SmuflMetadata, musicFontSize?: number): void;
-
     private static _smuflNameToMusicFontSymbol;
     /**
      * The size of the bars drawn in numbered notation to indicate the durations.
@@ -8174,12 +8157,10 @@ declare interface EngravingStemInfoJson {
  * @public
  */
 export declare class Environment {
-
     /**
      * @target web
      */
     private static _globalThis;
-
     /**
      * @target web
      */
@@ -8208,8 +8189,6 @@ export declare class Environment {
      * @target web
      */
     static get isRunningInAudioWorklet(): boolean;
-
-
     /**
      * @target web
      * @partial
@@ -8219,7 +8198,6 @@ export declare class Environment {
      * @target web
      */
     private static _detectScriptFile;
-
     private static _appendScriptName;
     /**
      * @target web
@@ -8230,10 +8208,7 @@ export declare class Environment {
      */
     private static _registerJQueryPlugin;
     static readonly renderEngines: Map<string, RenderEngineFactory>;
-
-
     static getRenderEngineFactory(engine: string): RenderEngineFactory;
-
     /**
      * Gets all default ScoreImporters
      * @returns
@@ -8257,15 +8232,12 @@ export declare class Environment {
      * @partial
      */
     private static _createPlatformSpecificRenderEngines;
-
     private static _createDefaultStaveProfiles;
     private static _createDefaultLayoutEngines;
     /**
      * @target web
      */
     static initializeMain(createWebWorker: (settings: Settings) => Worker, createAudioWorklet: (context: AudioContext, settings: Settings) => Promise<void>): void;
-
-
     /**
      * @target web
      */
@@ -8296,9 +8268,6 @@ export declare class Environment {
      * @partial
      */
     private static _printPlatformInfo;
-
-
-
 }
 
 export declare namespace exporter {
@@ -9807,7 +9776,6 @@ declare class InstrumentArticulation {
      */
     outputMidiNumber: number;
     constructor(elementType?: string, staffLine?: number, outputMidiNumber?: number, noteHeadDefault?: MusicFontSymbol, noteHeadHalf?: MusicFontSymbol, noteHeadWhole?: MusicFontSymbol, techniqueSymbol?: MusicFontSymbol, techniqueSymbolPlacement?: TechniqueSymbolPlacement, id?: number);
-
     getSymbol(duration: Duration): MusicFontSymbol;
 }
 
@@ -10791,7 +10759,6 @@ declare class MasterBar {
      * Defines the custom beaming rules which should be applied to this bar and all bars following.
      */
     beamingRules?: BeamingRules;
-
     /**
      * Gets or sets whether the bar indicates a free time playing.
      */
@@ -11357,7 +11324,6 @@ declare class MidiFileGenerator {
      * @returns The generated sync points for usage in the backing track playback.
      */
     static generateSyncPoints(score: Score, createNew?: boolean): BackingTrackSyncPoint[];
-
     private static _playThroughSong;
     private static _processBarTime;
     private static _processBarTimeWithNewSyncPoints;
@@ -11476,7 +11442,6 @@ declare class MidiFileGenerator {
  */
 declare class MidiTickLookup {
     private _currentMasterBar;
-
     /**
      * A list of all {@link MasterBarTickLookup} sorted by time.
      */
@@ -12730,8 +12695,6 @@ declare interface NotationSettingsJson {
  * @public
  */
 declare class Note {
-
-
     /**
      * Gets or sets the unique id of this note.
      * @clone_ignore
@@ -13132,8 +13095,6 @@ declare class Note {
     private static _noteIdLookupKey;
     private _noteIdBag;
     chain(sharedDataBag?: Map<string, unknown> | null): void;
-
-
 }
 
 /**
@@ -14383,7 +14344,6 @@ export declare class RenderingResources {
      * The default fonts for notation elements if not specified by the user.
      */
     static defaultFonts: Map<NotationElement, Font>;
-
     /**
      * The SMuFL Metrics to use for rendering music symbols.
      * @defaultValue `alphaTab`
@@ -14580,7 +14540,6 @@ export declare class RenderingResources {
      */
     scoreInfoColor: Color;
     constructor();
-
 }
 
 /**
@@ -14591,7 +14550,6 @@ export declare class RenderingResources {
  * @target web
  */
 declare interface RenderingResourcesJson {
-
     /**
      * The SMuFL Metrics to use for rendering music symbols.
      * @defaultValue `alphaTab`
@@ -15049,7 +15007,6 @@ declare class ScoreRenderer implements IScoreRenderer {
     canvas: ICanvas | null;
     score: Score | null;
     tracks: Track[] | null;
-
     settings: Settings;
     boundsLookup: BoundsLookup | null;
     width: number;
@@ -15238,7 +15195,6 @@ export declare class Settings {
      * @target web
      */
     fillFromJson(json: SettingsJson): void;
-
 }
 
 /**
@@ -16160,7 +16116,6 @@ declare class TremoloPickingEffect {
      * The style of the tremolo picking.
      */
     style: TremoloPickingStyle;
-
     /**
      * Gets the duration of a single tremolo note played in a beat of the given duration
      * based on the configured marks.
@@ -16454,7 +16409,6 @@ declare class Voice {
     private _isEmpty;
     private _isRestOnly;
     private static _globalVoiceId;
-
     /**
      * Gets or sets the unique id of this bar.
      */
@@ -16482,12 +16436,10 @@ declare class Voice {
      * The style customizations for this item.
      */
     style?: VoiceStyle;
-
     /**
      * Gets or sets a value indicating whether this voice is empty.
      */
     get isRestOnly(): boolean;
-
     insertBeat(after: Beat, newBeat: Beat): void;
     addBeat(beat: Beat): void;
     private _chain;
