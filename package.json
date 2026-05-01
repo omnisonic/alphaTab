@@ -2,14 +2,14 @@
   "name": "@coderline/alphatab",
   "version": "1.8.2",
   "description": "alphaTab music notation and guitar tablature rendering library",
-  "main": "alphaTab.js",
-  "module": "alphaTab.mjs",
-  "types": "alphaTab.d.ts",
+  "main": "packages/alphatab/dist/alphaTab.js",
+  "module": "packages/alphatab/dist/alphaTab.mjs",
+  "types": "packages/alphatab/dist/alphaTab.d.ts",
   "exports": {
     ".": {
-      "import": "./alphaTab.mjs",
-      "require": "./alphaTab.js",
-      "types": "./alphaTab.d.ts"
+      "import": "./packages/alphatab/dist/alphaTab.mjs",
+      "require": "./packages/alphatab/dist/alphaTab.js",
+      "types": "./packages/alphatab/dist/alphaTab.d.ts"
     }
   },
   "files": [
