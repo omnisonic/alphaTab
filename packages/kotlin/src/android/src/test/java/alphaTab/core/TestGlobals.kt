@@ -1,0 +1,412 @@
+package alphaTab.core
+
+import alphaTab.SnapshotFileRepository
+import alphaTab.TestPlatformPartials
+import alphaTab.collections.List
+import alphaTab.collections.ObjectDoubleMap
+import org.junit.Assert
+import java.lang.reflect.Method
+import java.nio.file.Paths
+import kotlin.contracts.ExperimentalContracts
+import kotlin.reflect.KClass
+
+annotation class TestClass(val name: String)
+annotation class TestName(val name: String)
+annotation class SnapshotFile(val path: String)
+
+
+
+class assert {
+    companion object {
+        fun fail(message: Any?) {
+            Assert.fail(message?.toString())
+        }
+    }
+}
+
+class NotExpector<T>(private val actual: T, private val message: String? = null) {
+    val be
+        get() = this
+
+    fun equal(expected: Any?, message: String? = null) {
+        var actualToCheck = actual
+        var expectedTyped: Any? = expected
+
+        if (expected is Int && actualToCheck is Double) {
+            expectedTyped = expected.toDouble();
+        }
+
+        if (expected is Double && actualToCheck is Int) {
+            expectedTyped = expected.toInt();
+        }
+
+        if (expected is Double && expected == 0.0 &&
+            actualToCheck is Double
+        ) {
+            val d = actualToCheck as Double;
+            if (d == -0.0) {
+                @Suppress("UNCHECKED_CAST")
+                actualToCheck = 0.0 as T
+            }
+        }
+
+        Assert.assertNotEquals(this.message ?: message, expectedTyped, actualToCheck as Any?)
+    }
+
+    fun ok() {
+        when (actual) {
+            is Int -> {
+                Assert.assertEquals(message, 0, actual)
+            }
+
+            is Double -> {
+                Assert.assertEquals(message, 0.0, actual, 0.0)
+            }
+
+            is String -> {
+                Assert.assertEquals(message, "", actual)
+            }
+
+            else -> {
+                Assert.assertNull(message, actual)
+            }
+        }
+    }
+
+    fun toBe(expected: Any?) {
+        equal(expected)
+    }
+
+    fun toEqual(expected: Any?, message: String? = null) {
+        equal(expected, message)
+    }
+
+    fun toBeTruthy() {
+        ok()
+    }
+
+    fun toBeFalsy() {
+        when (actual) {
+            null -> Assert.fail(message ?: "Expected non-falsy value")
+            is Boolean -> Assert.assertTrue(message, actual)
+            is String -> Assert.assertFalse(message, actual.isEmpty())
+            is Number -> Assert.assertNotEquals(message, 0.0, actual.toDouble(), 0.0)
+        }
+    }
+
+    fun toContain(value: Any) {
+        if (actual is Iterable<*>) {
+            Assert.assertFalse(
+                message ?: "Expected collection ${actual.joinToString(",")} to not contain $value",
+                actual.contains(value)
+            )
+        } else {
+            Assert.fail("toContain can only be used with Iterable operands");
+        }
+    }
+
+    fun toHaveLength(expected: Double) {
+        when (actual) {
+            is alphaTab.collections.List<*> -> Assert.assertNotEquals(message, expected.toInt(), actual.length.toInt())
+            is alphaTab.collections.DoubleList -> Assert.assertNotEquals(message, expected.toInt(), actual.length.toInt())
+            is alphaTab.collections.BooleanList -> Assert.assertNotEquals(message, expected.toInt(), actual.length.toInt())
+            else -> Assert.fail("toHaveLength can only be used with collection operands")
+        }
+    }
+
+    fun toBeGreaterThan(expected: Double) {
+        if (actual is Number) {
+            Assert.assertFalse(
+                message ?: "Expected $actual to not be greater than $expected",
+                actual.toDouble() > expected
+            )
+        } else {
+            Assert.fail("toBeGreaterThan can only be used with numeric operands")
+        }
+    }
+
+    fun toBeLessThan(expected: Double) {
+        if (actual is Number) {
+            Assert.assertFalse(
+                message ?: "Expected $actual to not be less than $expected",
+                actual.toDouble() < expected
+            )
+        } else {
+            Assert.fail("toBeLessThan can only be used with numeric operands")
+        }
+    }
+
+    fun toBeNull() {
+        Assert.assertNotNull(message, actual)
+    }
+
+    fun toBeUndefined() {
+        Assert.assertNotNull(message, actual)
+    }
+
+    fun toBeInstanceOf(expected: kotlin.reflect.KClass<*>) {
+        Assert.assertFalse(
+            message ?: "Expected ${actual?.let { it::class.qualifiedName }} to not be instance of ${expected.qualifiedName}",
+            expected.isInstance(actual)
+        )
+    }
+}
+
+class Expector<T>(private val actual: T, private val message: String? = null) {
+    val not
+        get() = NotExpector(actual, message)
+
+    fun equal(expected: Any?, message: String? = null) {
+        var actualToCheck = actual
+        var expectedTyped: Any? = expected
+
+        if (expected is Int && actualToCheck is Double) {
+            expectedTyped = expected.toDouble();
+        }
+
+        if (expected is Double && actualToCheck is Int) {
+            expectedTyped = expected.toInt();
+        }
+
+        if (expected is Double && expected == 0.0 &&
+            actualToCheck is Double
+        ) {
+            val d = actualToCheck as Double;
+            if (d == -0.0) {
+                @Suppress("UNCHECKED_CAST")
+                actualToCheck = 0.0 as T
+            }
+        }
+
+        Assert.assertEquals(this.message ?: message, expectedTyped, actualToCheck as Any?)
+    }
+
+
+    fun lessThan(expected: Double) {
+        if (actual is Number) {
+            Assert.assertTrue(
+                this.message ?: "Expected $actual to be less than $expected",
+                actual.toDouble() < expected
+            )
+        } else {
+            Assert.fail("lessThan can only be used with numeric operands");
+        }
+    }
+
+
+    fun greaterThan(expected: Double, message: String? = null) {
+        if (actual is Number) {
+            Assert.assertTrue(
+                this.message ?: (message ?: "Expected $actual to be greater than $expected"),
+                actual.toDouble() > expected
+            )
+        } else {
+            Assert.fail("greaterThan can only be used with numeric operands");
+        }
+    }
+
+    fun closeTo(expected: Double, delta: Double, message: String? = null) {
+        if (actual is Number) {
+            Assert.assertEquals(this.message ?: message, expected, actual.toDouble(), delta)
+        } else {
+            Assert.fail("toBeCloseTo can only be used with numeric operands");
+        }
+    }
+
+    fun length(expected: Double) {
+        if (actual is alphaTab.collections.List<*>) {
+            Assert.assertEquals(message, expected.toInt(), actual.length.toInt())
+        } else if (actual is alphaTab.collections.DoubleList) {
+            Assert.assertEquals(message, expected.toInt(), actual.length.toInt())
+        } else if (actual is alphaTab.collections.BooleanList) {
+            Assert.assertEquals(message, expected.toInt(), actual.length.toInt())
+        } else {
+            Assert.fail("length can only be used with collection operands");
+        }
+    }
+
+    fun contain(value: Any) {
+        if (actual is Iterable<*>) {
+            Assert.assertTrue(
+                message ?: "Expected collection ${actual.joinToString(",")} to contain $value",
+                actual.contains(value)
+            )
+        } else {
+            Assert.fail("contain can only be used with Iterable operands");
+        }
+    }
+
+    fun ok() {
+        Assert.assertNotNull(actual)
+        when (actual) {
+            is Int -> {
+                Assert.assertNotEquals(message, 0, actual)
+            }
+
+            is Double -> {
+                Assert.assertNotEquals(message, 0.0, actual)
+            }
+
+            is String -> {
+                Assert.assertNotEquals(message, "", actual)
+            }
+        }
+    }
+
+    fun toBe(expected: Any?) {
+        equal(expected)
+    }
+
+    fun toEqual(expected: Any?, message: String? = null) {
+        equal(expected, message)
+    }
+
+    fun toBeTruthy() {
+        ok()
+    }
+
+    fun toBeFalsy() {
+        when (actual) {
+            null -> return
+            is Boolean -> Assert.assertFalse(message, actual)
+            is String -> Assert.assertTrue(message, actual.isEmpty())
+            is Number -> Assert.assertEquals(message, 0.0, actual.toDouble(), 0.0)
+            else -> Assert.fail(message ?: "Expected a falsy value")
+        }
+    }
+
+    fun toBeCloseTo(expected: Double, decimals: Double = 2.0) {
+        val delta = Math.pow(10.0, -decimals) / 2
+        closeTo(expected, delta)
+    }
+
+    fun toContain(value: Any) {
+        contain(value)
+    }
+
+    fun toHaveLength(expected: Double) {
+        length(expected)
+    }
+
+    fun toBeGreaterThan(expected: Double, message: String? = null) {
+        greaterThan(expected, message)
+    }
+
+    fun toBeLessThan(expected: Double) {
+        lessThan(expected)
+    }
+
+    fun toBeInstanceOf(expected: KClass<*>) {
+        Assert.assertTrue(
+            message ?: "Expected ${actual?.let { it::class.qualifiedName }} to be instance of ${expected.qualifiedName}",
+            expected.isInstance(actual)
+        )
+    }
+
+    fun toBeNull() {
+        Assert.assertNull(message, actual)
+    }
+
+    fun toBeUndefined() {
+        Assert.assertNull(message, actual)
+    }
+
+    fun toThrow(expected: KClass<out Throwable>) {
+        `throw`(expected)
+    }
+
+    fun `throw`(expected: KClass<out Throwable>) {
+        val actual = actual
+        if (actual is Function0<*>) {
+            try {
+                actual()
+                Assert.fail(message ?: ("Did not throw error " + expected.qualifiedName));
+            } catch (e: Throwable) {
+                if (expected::class.isInstance(e::class)) {
+                    return;
+                }
+            }
+
+            Assert.fail(message ?: "Exception type didn't match");
+        } else {
+            Assert.fail("ToThrowError can only be used with an exception");
+        }
+    }
+
+
+    @ExperimentalUnsignedTypes
+    @ExperimentalContracts
+    fun toMatchSnapshot(hint: String = "") {
+        val testMethodInfo = TestPlatformPartials.findTestMethod()
+        val file = testMethodInfo.getAnnotation(SnapshotFile::class.java)?.path
+        if (file.isNullOrEmpty()) {
+            Assert.fail("Missing SnapshotFile annotation with path to .snap file")
+        }
+
+        val absoluteSnapFilePath = Paths.get(
+            TestPlatformPartials.projectRoot,
+            file
+        ).toAbsolutePath();
+        if (!absoluteSnapFilePath.toFile().exists()) {
+            Assert.fail("Could not find snapshot file at $absoluteSnapFilePath")
+        }
+
+        val snapshotFile = SnapshotFileRepository.loadSnapshotFile(absoluteSnapFilePath.toString())
+
+        val parts = List<String>();
+        collectTestSuiteNames(parts, testMethodInfo.declaringClass)
+        val testName = testMethodInfo.getAnnotation(TestName::class.java)!!.name
+        parts.push(testName)
+
+        val snapshotName = TestGlobals.useSnapshotValue(parts.joinToString(" > "), hint);
+
+        val error = snapshotFile.match(snapshotName, actual)
+        if (!error.isNullOrEmpty()) {
+            Assert.fail(error)
+        }
+    }
+
+    private fun collectTestSuiteNames(parts: List<String>, testClass: Class<*>) {
+        if (testClass.declaringClass != null) {
+            collectTestSuiteNames(parts, testClass.declaringClass!!);
+        }
+
+        val testSuiteName =
+            testClass.getAnnotation(TestClass::class.java)?.name ?: testClass.simpleName
+        parts.push(testSuiteName);
+    }
+}
+
+class TestGlobals {
+    @ExperimentalUnsignedTypes
+    @ExperimentalContracts
+    companion object {
+        val snapshotAssertionCounters: ObjectDoubleMap<String> = ObjectDoubleMap()
+
+        fun useSnapshotValue(baseName: String, hint: String): String {
+            var fullName = baseName
+            if (hint.isNotEmpty()) {
+                fullName += " > $hint";
+            }
+
+            val value =
+                if (snapshotAssertionCounters.has(fullName)) snapshotAssertionCounters.get(fullName)!! + 1 else 1.0
+            snapshotAssertionCounters.set(fullName, value)
+            return "$fullName ${value.toInt()}";
+        }
+
+        fun <T> expect(actual: T, message:String? = null): Expector<T> {
+            return Expector(actual, message);
+        }
+
+        fun expect(actual: () -> Unit): Expector<() -> Unit> {
+            return Expector(actual);
+        }
+
+        fun fail(message: Any?) {
+            Assert.fail(message.toString())
+        }
+
+
+    }
+}
