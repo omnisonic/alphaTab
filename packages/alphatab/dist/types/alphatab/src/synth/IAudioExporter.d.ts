@@ -105,6 +105,7 @@ export interface IAudioExporter extends Disposable {
      * slightly longer audio is contained in the result.
      *
      * When the song ends, the chunk might contain less than the requested duration.
+     * @async
      */
     render(milliseconds: number): Promise<AudioExportChunk | undefined>;
     destroy(): void;
@@ -122,6 +123,7 @@ export interface IAudioExporterWorker extends IAudioExporter {
      * @param midi The midi file to load
      * @param syncPoints The sync points of the song (if any)
      * @param transpositionPitches The initial transposition pitches for the midi file.
+     * @async
      */
     initialize(options: AudioExportOptions, midi: MidiFile, syncPoints: BackingTrackSyncPoint[], transpositionPitches: Map<number, number>): Promise<void>;
 }

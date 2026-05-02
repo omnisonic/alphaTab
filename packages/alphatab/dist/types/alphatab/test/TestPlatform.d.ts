@@ -7,6 +7,11 @@ export declare class TestPlatform {
      * @target web
      * @partial
      */
+    static throttle(action: () => void, delay: number): () => void;
+    /**
+     * @target web
+     * @partial
+     */
     static saveFile(name: string, data: Uint8Array): Promise<void>;
     /**
      * @target web

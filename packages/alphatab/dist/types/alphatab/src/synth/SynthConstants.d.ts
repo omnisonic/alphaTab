@@ -3,7 +3,6 @@
  */
 export declare class SynthConstants {
     static readonly DefaultChannelCount: number;
-    static readonly MetronomeChannel: number;
     static readonly MetronomeKey: number;
     static readonly AudioChannels: number;
     static readonly MinVolume: number;
@@ -27,4 +26,8 @@ export declare class SynthConstants {
     static readonly DefaultPitchWheel: number;
     static readonly MicroBufferCount: number;
     static readonly MicroBufferSize: number;
+    /**
+     * approximately -60 dB, which is inaudible to humans
+     */
+    static readonly AudibleLevelThreshold: number;
 }

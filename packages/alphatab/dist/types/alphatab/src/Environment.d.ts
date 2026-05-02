@@ -3,6 +3,7 @@ import { LayoutMode } from "./LayoutMode";
 import type { Font } from "./model/Font";
 import type { ICanvas } from "./platform/ICanvas";
 import { WebPlatform } from "./platform/javascript/WebPlatform";
+import type { IAlphaTabWorkerGlobalScope } from "./platform/worker/AlphaTabWorkerProtocol";
 import { type BarRendererFactory } from "./rendering/BarRendererFactory";
 import type { ScoreLayout } from "./rendering/layout/ScoreLayout";
 import type { ScoreRenderer } from "./rendering/ScoreRenderer";
@@ -64,6 +65,12 @@ export declare class Environment {
     static get globalThis(): any;
     /**
      * @target web
+     * @internal
+     * @partial
+     */
+    static getGlobalWorkerScope<T>(): IAlphaTabWorkerGlobalScope<T>;
+    /**
+     * @target web
      */
     static readonly webPlatform: WebPlatform;
     /**
@@ -90,21 +97,6 @@ export declare class Environment {
      * @target web
      */
     static get isRunningInAudioWorklet(): boolean;
-    /**
-     * @target web
-     * @internal
-     */
-    static createWebWorker: (settings: Settings) => Worker;
-    /**
-     * @target web
-     * @internal
-     */
-    static createAudioWorklet: (context: AudioContext, settings: Settings) => Promise<void>;
-    /**
-     * @target web
-     * @partial
-     */
-    static throttle(action: () => void, delay: number): () => void;
     /**
      * @target web
      */
@@ -169,7 +161,7 @@ export declare class Environment {
     /**
      * @target web
      */
-    static initializeMain(createWebWorker: (settings: Settings) => Worker, createAudioWorklet: (context: AudioContext, settings: Settings) => Promise<void>): void;
+    static initializeMain(createWebWorker: (settings: Settings, nameHint: string) => Worker, createAudioWorklet: (context: AudioContext, settings: Settings) => Promise<void>): void;
     /**
      * @target web
      * @internal
@@ -215,6 +207,7 @@ export declare class Environment {
      * create proxy objects for all objects used. This code handles the necessary unwrapping.
      * @internal
      * @target web
+     * @partial
      */
     static prepareForPostMessage<T>(object: T): T;
     /**

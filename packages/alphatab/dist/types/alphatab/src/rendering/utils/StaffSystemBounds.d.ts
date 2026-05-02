@@ -28,7 +28,14 @@ export declare class StaffSystemBounds {
      */
     boundsLookup: BoundsLookup;
     /**
-     * Finished the lookup for optimized access.
+     * Whether this system's bounds have already been scaled via `finish`. Prevents double-scaling
+     * when the parent `BoundsLookup` is preserved across partial renders and `finish` is invoked
+     * again on a mix of already-scaled (preserved) and newly-registered (natural-coordinate) systems.
+     */
+    isFinished: boolean;
+    /**
+     * Finished the lookup for optimized access. Idempotent: once finished, further calls are no-ops
+     * so preserved systems survive partial renders without being re-scaled.
      */
     finish(scale?: number): void;
     /**

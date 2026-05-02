@@ -21,6 +21,7 @@ export declare class HorizontalScreenLayout extends ScoreLayout {
     get supportsResize(): boolean;
     get firstBarX(): number;
     doResize(): void;
+    doUpdateForBars(_renderHints: RenderHints): boolean;
     protected doLayoutAndRender(renderHints: RenderHints | undefined): void;
     private _scaleBars;
     private _completePartial;

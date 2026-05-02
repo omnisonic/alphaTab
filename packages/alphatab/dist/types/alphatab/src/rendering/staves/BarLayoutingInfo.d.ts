@@ -34,6 +34,20 @@ export declare class BarLayoutingInfo {
     postBeatSize: number;
     minStretchForce: number;
     totalSpringConstant: number;
+    /**
+     * The smallest note duration encountered within this bar's springs, used as the reference in
+     * the Gourlay stretch formula. Read by the owning {@link StaffSystem} so that the system can
+     * aggregate a shared minimum across all bars and trigger a reconcile if an added bar introduces
+     * a shorter duration than previously seen.
+     */
+    get localMinDuration(): number;
+    /**
+     * The minimum-duration reference against which the spring constants currently held by this info
+     * were computed. Set by {@link finish} and {@link recomputeSpringConstants}. The owning
+     * StaffSystem compares this against its system-wide minimum to decide whether spring constants
+     * need re-derivation.
+     */
+    computedWithMinDuration: number;
     private _updateMinStretchForce;
     getBeatSizes(beat: Beat): BarLayoutingInfoBeatSizes | undefined;
     setBeatSizes(beat: BeatContainerGlyphBase, sizes: BarLayoutingInfoBeatSizes): void;
@@ -45,6 +59,17 @@ export declare class BarLayoutingInfo {
     addSpring(start: number, duration: number, graceBeatWidth: number, preBeatWidth: number, postSpringSize: number): Spring;
     addBeatSpring(beat: BeatContainerGlyphBase, preBeatSize: number, postBeatSize: number): void;
     finish(): void;
+    /**
+     * Re-derives the spring constants (and {@link minStretchForce} / {@link totalSpringConstant})
+     * using a caller-supplied minimum-duration reference rather than this bar's local minimum.
+     *
+     * Called by {@link StaffSystem.reconcileMinDurationIfDirty} when a bar added later to the
+     * system introduced a shorter note than previously seen, invalidating this bar's spring
+     * constants. Grace-rod data is not recomputed — it is independent of the minimum-duration
+     * reference. The internal {@link version} is bumped so downstream consumers (e.g.
+     * {@link BarRendererBase.applyLayoutingInfo}) pick up the refreshed positions.
+     */
+    recomputeSpringConstants(minDuration: number): void;
     private _calculateSpringConstants;
     height: number;
     paint(_cx: number, _cy: number, _canvas: ICanvas): void;

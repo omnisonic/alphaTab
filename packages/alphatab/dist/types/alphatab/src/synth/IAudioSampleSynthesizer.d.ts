@@ -58,9 +58,10 @@ export interface IAudioSampleSynthesizer {
     loadPresets(hydra: Hydra, instrumentPrograms: Set<number>, percussionKeys: Set<number>, append: boolean): void;
     /**
      * Configures the channel used to generate metronome sounds.
+     * @param metronomeChannel The midi hannel to use for playing the metronome (to avoid overlaps with instruments).
      * @param metronomeVolume The volume for the channel.
      */
-    setupMetronomeChannel(metronomeVolume: number): void;
+    setupMetronomeChannel(metronomeChannel: number, metronomeVolume: number): void;
     /**
      * Synthesizes the given number of samples without producing an output (e.g. on seeking)
      * @param sampleCount The number of samples to synthesize.

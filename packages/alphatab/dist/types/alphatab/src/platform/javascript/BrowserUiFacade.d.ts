@@ -13,6 +13,7 @@ import { Cursors } from "./../Cursors";
 import { ScalableHtmlElementContainer } from "./ScalableHtmlElementContainer";
 import type { SettingsJson } from "./../../generated/SettingsJson";
 import type { IAudioExporterWorker } from "./../../synth/IAudioExporter";
+import type { IAlphaTabRenderingWorker, IAlphaSynthWorker } from "./../worker/AlphaTabWorkerProtocol";
 /**
  * @target web
  * @internal
@@ -101,4 +102,18 @@ export declare class BrowserUiFacade implements IUiFacade<unknown> {
     private _internalScrollTo;
     private _internalScrollToX;
     createBackingTrackPlayer(): IAlphaSynth | null;
+    throttle(action: () => void, delay: number): () => void;
+    /**
+     * @internal
+     */
+    static createAlphaTabWebWorker: (settings: Settings) => IAlphaTabRenderingWorker;
+    /**
+     * @internal
+     */
+    static createAlphaSynthWebWorker: (settings: Settings) => IAlphaSynthWorker;
+    /**
+     * @target web
+     * @internal
+     */
+    static createAlphaSynthAudioWorklet: (context: AudioContext, settings: Settings) => Promise<void>;
 }

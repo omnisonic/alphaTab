@@ -10,7 +10,7 @@ export { PlaybackRangeChangedEventArgs } from "./PlaybackRangeChangedEventArgs";
 export { PositionChangedEventArgs } from "./PositionChangedEventArgs";
 export { MidiEventsPlayedEventArgs } from "./MidiEventsPlayedEventArgs";
 export { ActiveBeatsChangedEventArgs } from "./ActiveBeatsChangedEventArgs";
-export { AlphaSynthWebWorkerApi } from "./../platform/javascript/AlphaSynthWebWorkerApi";
+export { AlphaSynthWebWorkerApi } from "./../platform/worker/AlphaSynthWebWorkerApi";
 export { AlphaSynthWebAudioOutputBase } from "./../platform/javascript/AlphaSynthWebAudioOutputBase";
 export { AlphaSynthScriptProcessorOutput } from "./../platform/javascript/AlphaSynthScriptProcessorOutput";
 export { AlphaSynthAudioWorkletOutput } from "./../platform/javascript/AlphaSynthAudioWorkletOutput";

@@ -17,6 +17,13 @@ export interface RenderHints {
      * internally it might still be decided to clear the viewport.
      */
     reuseViewport?: boolean;
+    /**
+     * Indicates the index of the first masterbar which was modified in the data model.
+     * @remarks
+     * AlphaTab will try to optimize the rendering and other updates to keep unchanged parts.
+     * At this point only the rendering is affected and the generated MIDI has to be updated separately.
+     */
+    firstChangedMasterBar?: number;
 }
 /**
  * Represents the public interface of the component that can render scores.

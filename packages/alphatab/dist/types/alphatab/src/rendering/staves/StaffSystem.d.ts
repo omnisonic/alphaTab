@@ -71,6 +71,45 @@ export declare class StaffSystem {
      * This value is mainly used in the parchment style layout for correct scaling of the bars.
      */
     totalBarDisplayScale: number;
+    /**
+     * Sum of per-bar {@link MasterBarsRenderers.maxFixedOverhead} across the system. The layout-mode
+     * horizontal scaling pass subtracts this from the available staff width before distributing the
+     * remainder across bars.
+     */
+    totalFixedOverhead: number;
+    /**
+     * Sum of per-bar {@link MasterBarsRenderers.maxContentWidth} across the system. Used as the
+     * denominator when distributing staff width in modes that weight bars by natural content width
+     * (Page layout with `SystemsLayoutMode.Automatic`).
+     */
+    totalContentWidth: number;
+    /**
+     * Shortest note duration (in ticks) across every bar that has been added to this system, used
+     * as the common reference in the Gourlay stretch formula so that rhythmically-equivalent beats
+     * in different bars of the same system align column-wise.
+     *
+     * `-1` means "no bar added yet". The value only moves downward during system assembly; when a
+     * new bar introduces a shorter minimum, {@link isMinDurationDirty} is set so that
+     * {@link reconcileMinDurationIfDirty} can re-derive spring constants on the previously-added
+     * bars before layout distribution runs.
+     */
+    minDuration: number;
+    /**
+     * Set when a bar added to this system introduced a shorter {@link minDuration} than previously
+     * seen, leaving earlier bars' spring constants stale. Consumed by
+     * {@link reconcileMinDurationIfDirty} which is called from `VerticalLayoutBase._fitSystem`
+     * once the system is fully assembled.
+     */
+    isMinDurationDirty: boolean;
+    /**
+     * Whether this system coordinates a shared minimum-duration reference across its bars for the
+     * Gourlay stretch formula. Defaults to `true` for page-style and parchment layouts where bars
+     * of a system fight for a common staff width. Set to `false` for horizontal layouts where each
+     * bar is sized independently (by `bar.displayWidth` or its intrinsic width) and there is no
+     * column-alignment concern - each bar keeps its local minimum so pre-existing rendering is
+     * preserved.
+     */
+    shareMinDurationAcrossBars: boolean;
     isLast: boolean;
     masterBarsRenderers: MasterBarsRenderers[];
     staves: StaffTrackGroup[];
@@ -84,6 +123,22 @@ export declare class StaffSystem {
     get lastBarIndex(): number;
     addMasterBarRenderers(tracks: Track[], renderers: MasterBarsRenderers): MasterBarsRenderers | null;
     addBars(tracks: Track[], barIndex: number, additionalMultiBarRestIndexes: number[] | null): MasterBarsRenderers;
+    /**
+     * Updates {@link minDuration} and {@link isMinDurationDirty} when a bar is added, and brings
+     * the just-added bar's {@link BarLayoutingInfo} in line with the current system minimum if the
+     * system already saw a shorter reference. The bulk reconcile over previously-added bars is
+     * deferred to {@link reconcileMinDurationIfDirty} (called from `_fitSystem`) to avoid
+     * re-iterating the system every time a bar is appended.
+     */
+    private _trackSystemMinDuration;
+    /**
+     * Re-derives spring constants on bars whose {@link BarLayoutingInfo.computedWithMinDuration}
+     * is out of sync with the current {@link minDuration}, and rebuilds the cached system totals
+     * (widths, {@link totalFixedOverhead}, {@link totalContentWidth}) from the refreshed bar
+     * widths. Called from `VerticalLayoutBase._fitSystem` after the system is fully assembled and
+     * before distribution runs. No-op when {@link isMinDurationDirty} is false.
+     */
+    reconcileMinDurationIfDirty(): void;
     getBarDisplayScale(renderer: BarRendererBase): number;
     revertLastBar(): MasterBarsRenderers | null;
     private _applyLayoutAndUpdateWidth;

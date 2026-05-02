@@ -1,22 +1,22 @@
+import { type IEventEmitter, type IEventEmitterOfT } from "./../EventEmitter";
+import type { LogLevel } from "./../LogLevel";
+import type { MidiEventType } from "./../midi/MidiEvent";
 import type { MidiFile } from "./../midi/MidiFile";
+import type { Score } from "./../model/Score";
+import { Queue } from "./ds/Queue";
 import type { BackingTrackSyncPoint, IAlphaSynth } from "./IAlphaSynth";
+import { AudioExportChunk, type AudioExportOptions } from "./IAudioExporter";
+import type { IAudioSampleSynthesizer } from "./IAudioSampleSynthesizer";
 import type { ISynthOutput } from "./ISynthOutput";
+import { MidiEventsPlayedEventArgs } from "./MidiEventsPlayedEventArgs";
 import { MidiFileSequencer } from "./MidiFileSequencer";
 import type { PlaybackRange } from "./PlaybackRange";
+import { PlaybackRangeChangedEventArgs } from "./PlaybackRangeChangedEventArgs";
 import { PlayerState } from "./PlayerState";
 import { PlayerStateChangedEventArgs } from "./PlayerStateChangedEventArgs";
 import { PositionChangedEventArgs } from "./PositionChangedEventArgs";
-import { type IEventEmitter, type IEventEmitterOfT } from "./../EventEmitter";
-import type { LogLevel } from "./../LogLevel";
-import type { SynthEvent } from "./synthesis/SynthEvent";
-import { Queue } from "./ds/Queue";
-import { MidiEventsPlayedEventArgs } from "./MidiEventsPlayedEventArgs";
-import type { MidiEventType } from "./../midi/MidiEvent";
-import { PlaybackRangeChangedEventArgs } from "./PlaybackRangeChangedEventArgs";
-import type { Score } from "./../model/Score";
-import type { IAudioSampleSynthesizer } from "./IAudioSampleSynthesizer";
-import { AudioExportChunk, type AudioExportOptions } from "./IAudioExporter";
 import type { Preset } from "./synthesis/Preset";
+import type { SynthEvent } from "./synthesis/SynthEvent";
 /**
  * This is the base class for synthesizer components which can be used to
  * play a {@link MidiFile} via a {@link ISynthOutput}.

@@ -32,7 +32,7 @@ export declare class JsonConverter {
      * @param score The score object to serialize
      * @returns A serialized score object without ciruclar dependencies that can be used for further serializations.
      */
-    static scoreToJsObject(score: Score): unknown;
+    static scoreToJsObject(score: Score): Map<string, unknown> | null;
     /**
      * Converts the given JavaScript object into a score object.
      * @param jsObject The javascript object created via {@link Score}

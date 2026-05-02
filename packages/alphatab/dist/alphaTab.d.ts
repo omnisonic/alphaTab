@@ -5568,22 +5568,10 @@ declare class Bounds {
  * @public
  */
 declare class BoundsLookup {
-    /**
-     * @target web
-     */
-    toJson(): unknown;
-    /**
-     * @target web
-     */
-    static fromJson(json: unknown, score: Score): BoundsLookup;
-    /**
-     * @target web
-     */
+    toJson(): Map<string, unknown>;
+    static fromJson(json: Map<string, unknown> | null, score: Score): BoundsLookup | null;
     private static _boundsFromJson;
-    /**
-     * @target web
-     */
-    private _boundsToJson;
+    private static _boundsToJson;
     private _beatLookup;
     private _masterBarLookup;
     private _currentStaffSystem;
@@ -6746,9 +6734,16 @@ export declare class DisplaySettings {
      *
      * The page layout does not use `displayWidth`. The use of absolute widths would break the proper alignments needed for this kind of display.
      *
-     * Also note that the sizing is including any glyphs and notation elements within the bar. e.g. if there are clefs in the bar, they are still "squeezed" into the available size.
-     * It is not the case that the actual notes with their lengths are sized accordingly. This fits the sizing system of Guitar Pro and when files are customized there,
-     * alphaTab will match this layout quite close.
+     * In both modes, prefix and postfix glyphs (clef, key signature, time signature, barlines) are treated as fixed overhead: they keep their
+     * natural size and the remaining staff width is distributed across bars by a per-bar weight. This matches the convention used by
+     * Guitar Pro, Dorico, Finale, Sibelius and MuseScore. Bars that carry a system-start prefix or a mid-line clef/key/time-signature change
+     * are therefore visibly wider than plain bars with the same weight. The weight source depends on the mode:
+     *
+     * * `Automatic` (default for `page` layout): weights come from the built-in spacing engine (the natural content width of each bar).
+     *   `displayScale` on the model is ignored.
+     * * `UseModelLayout` (and the `parchment` layout): weights come from `bar.displayScale` / `masterBar.displayScale`. An unset
+     *   `displayScale` defaults to `1` and behaves identically to an explicit `1`, matching Guitar Pro (which omits the value when the
+     *   author hasn't customized it).
      *
      * ### Horizontal Layout
      *
@@ -7105,9 +7100,16 @@ declare interface DisplaySettingsJson {
      *
      * The page layout does not use `displayWidth`. The use of absolute widths would break the proper alignments needed for this kind of display.
      *
-     * Also note that the sizing is including any glyphs and notation elements within the bar. e.g. if there are clefs in the bar, they are still "squeezed" into the available size.
-     * It is not the case that the actual notes with their lengths are sized accordingly. This fits the sizing system of Guitar Pro and when files are customized there,
-     * alphaTab will match this layout quite close.
+     * In both modes, prefix and postfix glyphs (clef, key signature, time signature, barlines) are treated as fixed overhead: they keep their
+     * natural size and the remaining staff width is distributed across bars by a per-bar weight. This matches the convention used by
+     * Guitar Pro, Dorico, Finale, Sibelius and MuseScore. Bars that carry a system-start prefix or a mid-line clef/key/time-signature change
+     * are therefore visibly wider than plain bars with the same weight. The weight source depends on the mode:
+     *
+     * * `Automatic` (default for `page` layout): weights come from the built-in spacing engine (the natural content width of each bar).
+     *   `displayScale` on the model is ignored.
+     * * `UseModelLayout` (and the `parchment` layout): weights come from `bar.displayScale` / `masterBar.displayScale`. An unset
+     *   `displayScale` defaults to `1` and behaves identically to an explicit `1`, matching Guitar Pro (which omits the value when the
+     *   author hasn't customized it).
      *
      * ### Horizontal Layout
      *
@@ -8191,11 +8193,6 @@ export declare class Environment {
     static get isRunningInAudioWorklet(): boolean;
     /**
      * @target web
-     * @partial
-     */
-    static throttle(action: () => void, delay: number): () => void;
-    /**
-     * @target web
      */
     private static _detectScriptFile;
     private static _appendScriptName;
@@ -8237,7 +8234,7 @@ export declare class Environment {
     /**
      * @target web
      */
-    static initializeMain(createWebWorker: (settings: Settings) => Worker, createAudioWorklet: (context: AudioContext, settings: Settings) => Promise<void>): void;
+    static initializeMain(createWebWorker: (settings: Settings, nameHint: string) => Worker, createAudioWorklet: (context: AudioContext, settings: Settings) => Promise<void>): void;
     /**
      * @target web
      */
@@ -9141,6 +9138,7 @@ declare interface IAudioExporter extends Disposable {
      * slightly longer audio is contained in the result.
      *
      * When the song ends, the chunk might contain less than the requested duration.
+     * @async
      */
     render(milliseconds: number): Promise<AudioExportChunk | undefined>;
     destroy(): void;
@@ -9159,6 +9157,7 @@ declare interface IAudioExporterWorker extends IAudioExporter {
      * @param midi The midi file to load
      * @param syncPoints The sync points of the song (if any)
      * @param transpositionPitches The initial transposition pitches for the midi file.
+     * @async
      */
     initialize(options: AudioExportOptions, midi: MidiFile, syncPoints: BackingTrackSyncPoint[], transpositionPitches: Map<number, number>): Promise<void>;
 }
@@ -10248,6 +10247,18 @@ declare interface IUiFacade<TSettings> {
      */
     beginInvoke(action: () => void): void;
     /**
+     * Creates a throttled/debounced version of the provided action.
+     * @param action The action to call.
+     * @param delay The delay to wait for additional call before actually executing.
+     * @returns A function which executes the provided action after the given delay.
+     * If multiple calls are made before the action is started, the already scheduled
+     * action is cancelled and a new one is scheduled after the given delay.
+     * If called endlessly, the action is never executed.
+     *
+     * Already executing actions will not be cancelled but will complete before another action executes.
+     */
+    throttle(action: () => void, delay: number): () => void;
+    /**
      * Tells the UI layer to remove all highlights from highlighted music notation elements.
      */
     removeHighlights(): void;
@@ -10401,7 +10412,7 @@ declare class JsonConverter {
      * @param score The score object to serialize
      * @returns A serialized score object without ciruclar dependencies that can be used for further serializations.
      */
-    static scoreToJsObject(score: Score): unknown;
+    static scoreToJsObject(score: Score): Map<string, unknown> | null;
     /**
      * Converts the given JavaScript object into a score object.
      * @param jsObject The javascript object created via {@link Score}
@@ -14311,6 +14322,13 @@ declare interface RenderHints {
      * internally it might still be decided to clear the viewport.
      */
     reuseViewport?: boolean;
+    /**
+     * Indicates the index of the first masterbar which was modified in the data model.
+     * @remarks
+     * AlphaTab will try to optimize the rendering and other updates to keep unchanged parts.
+     * At this point only the rendering is affected and the generated MIDI has to be updated separately.
+     */
+    firstChangedMasterBar?: number;
 }
 
 export declare namespace rendering {
@@ -15593,7 +15611,14 @@ declare class StaffSystemBounds {
      */
     boundsLookup: BoundsLookup;
     /**
-     * Finished the lookup for optimized access.
+     * Whether this system's bounds have already been scaled via `finish`. Prevents double-scaling
+     * when the parent `BoundsLookup` is preserved across partial renders and `finish` is invoked
+     * again on a mix of already-scaled (preserved) and newly-registered (natural-coordinate) systems.
+     */
+    isFinished: boolean;
+    /**
+     * Finished the lookup for optimized access. Idempotent: once finished, further calls are no-ops
+     * so preserved systems survive partial renders without being re-scaled.
      */
     finish(scale?: number): void;
     /**

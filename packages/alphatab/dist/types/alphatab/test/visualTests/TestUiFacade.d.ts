@@ -47,6 +47,7 @@ export declare class TestUiFacade implements IUiFacade<unknown> {
     load(data: unknown, success: (score: Score) => void, error: (error: Error) => void): boolean;
     loadSoundFont(data: unknown, append: boolean): boolean;
     createBackingTrackPlayer(): IAlphaSynth | null;
+    throttle(action: () => void, delay: number): () => void;
     readonly canRenderChanged: IEventEmitter;
     readonly rootContainerBecameVisible: IEventEmitter;
 }

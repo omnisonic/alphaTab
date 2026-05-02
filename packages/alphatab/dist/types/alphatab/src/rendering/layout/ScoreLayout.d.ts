@@ -38,8 +38,10 @@ export declare abstract class ScoreLayout {
     beamingRuleLookups: Map<string, BeamingRuleLookup>;
     resize(): void;
     abstract doResize(): void;
+    abstract doUpdateForBars(renderHints: RenderHints): boolean;
     layoutAndRender(renderHints?: RenderHints): void;
     private _lazyPartials;
+    protected getExistingPartialArgs(id: string): RenderFinishedEventArgs | undefined;
     protected registerPartial(args: RenderFinishedEventArgs, callback: (canvas: ICanvas) => void): void;
     private _internalRenderLazyPartial;
     renderLazyPartial(resultId: string): void;
@@ -55,5 +57,5 @@ export declare abstract class ScoreLayout {
     getRendererForBar(key: string, bar: Bar): BarRendererBase | null;
     protected layoutAndRenderBottomScoreInfo(y: number): number;
     protected alignScoreInfoGlyph(glyph: TextGlyph): void;
-    layoutAndRenderAnnotation(y: number): number;
+    protected _layoutAndRenderAnnotation(y: number): number;
 }

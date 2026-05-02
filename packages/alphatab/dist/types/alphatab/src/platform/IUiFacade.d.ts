@@ -109,6 +109,18 @@ export interface IUiFacade<TSettings> {
      */
     beginInvoke(action: () => void): void;
     /**
+     * Creates a throttled/debounced version of the provided action.
+     * @param action The action to call.
+     * @param delay The delay to wait for additional call before actually executing.
+     * @returns A function which executes the provided action after the given delay.
+     * If multiple calls are made before the action is started, the already scheduled
+     * action is cancelled and a new one is scheduled after the given delay.
+     * If called endlessly, the action is never executed.
+     *
+     * Already executing actions will not be cancelled but will complete before another action executes.
+     */
+    throttle(action: () => void, delay: number): () => void;
+    /**
      * Tells the UI layer to remove all highlights from highlighted music notation elements.
      */
     removeHighlights(): void;

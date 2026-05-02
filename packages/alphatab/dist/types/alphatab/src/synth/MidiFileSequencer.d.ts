@@ -34,6 +34,7 @@ declare class MidiSequencerState {
     endTime: number;
     currentTempo: number;
     syncPointTempo: number;
+    metronomeChannel: number;
 }
 /**
  * This sequencer dispatches midi events to the synthesizer based on the current
@@ -46,6 +47,7 @@ export declare class MidiFileSequencer {
     private _mainState;
     private _oneTimeState;
     private _countInState;
+    get metronomeChannel(): number;
     get isPlayingMain(): boolean;
     get isPlayingOneTimeMidi(): boolean;
     get isPlayingCountIn(): boolean;

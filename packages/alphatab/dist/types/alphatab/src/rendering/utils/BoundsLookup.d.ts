@@ -9,22 +9,10 @@ import { StaffSystemBounds } from "./StaffSystemBounds";
  * @public
  */
 export declare class BoundsLookup {
-    /**
-     * @target web
-     */
-    toJson(): unknown;
-    /**
-     * @target web
-     */
-    static fromJson(json: unknown, score: Score): BoundsLookup;
-    /**
-     * @target web
-     */
+    toJson(): Map<string, unknown>;
+    static fromJson(json: Map<string, unknown> | null, score: Score): BoundsLookup | null;
     private static _boundsFromJson;
-    /**
-     * @target web
-     */
-    private _boundsToJson;
+    private static _boundsToJson;
     private _beatLookup;
     private _masterBarLookup;
     private _currentStaffSystem;
@@ -40,6 +28,24 @@ export declare class BoundsLookup {
      * Finishes the lookup for optimized access.
      */
     finish(scale?: number): void;
+    /**
+     * Re-opens the lookup for registrations without discarding previously registered bounds.
+     * Used by the renderer when it preserves this lookup across a partial render so that new
+     * bounds for the re-layouted range can be added while preserved systems stay intact.
+     * @internal
+     */
+    resetForPartialUpdate(): void;
+    /**
+     * Removes all entries belonging to the given master bar index and any bars after it.
+     * Used before a partial render re-registers bounds for the re-layouted range, so the
+     * preserved lookup ends up with only the unchanged entries when registration begins.
+     *
+     * Assumes the layout aligns its re-layouted range to system boundaries - i.e. the first
+     * system to clear starts exactly at `masterBarIndex`. Caller is responsible for passing
+     * the first master-bar-index of the first re-layouted system.
+     * @internal
+     */
+    clearFromMasterBar(masterBarIndex: number): void;
     /**
      * Adds a new staff sytem to the lookup.
      * @param bounds The staff system bounds to add.

@@ -23,6 +23,7 @@ export declare class TinySoundFont implements IAudioSampleSynthesizer {
     currentTempo: number;
     timeSignatureNumerator: number;
     timeSignatureDenominator: number;
+    private _metronomeChannel;
     constructor(sampleRate: number);
     synthesize(buffer: Float32Array, bufferPos: number, sampleCount: number): SynthEvent[];
     synthesizeSilent(sampleCount: number): void;
@@ -38,7 +39,7 @@ export declare class TinySoundFont implements IAudioSampleSynthesizer {
     processMidiMessage(e: MidiEvent): void;
     get metronomeVolume(): number;
     set metronomeVolume(value: number);
-    setupMetronomeChannel(volume: number): void;
+    setupMetronomeChannel(channel: number, volume: number): void;
     get masterVolume(): number;
     set masterVolume(value: number);
     /**

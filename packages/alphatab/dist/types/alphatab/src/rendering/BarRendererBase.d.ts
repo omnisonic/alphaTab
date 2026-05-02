@@ -121,6 +121,13 @@ export declare class BarRendererBase {
     registerBeatEffectOverflows(beatEffectsMinY: number, beatEffectsMaxY: number): void;
     registerOverflowTop(topOverflow: number): boolean;
     registerOverflowBottom(bottomOverflow: number): boolean;
+    /**
+     * The fixed-overhead width of this renderer: glyphs that do not stretch when
+     * the bar is scaled (clef, key signature, time signature, barlines, courtesy
+     * accidentals, etc). Treated as a fixed allocation by the system-level layout
+     * before distributing remaining width across bars by {@link Bar.displayScale}.
+     */
+    get fixedOverhead(): number;
     scaleToWidth(width: number): void;
     get resources(): RenderingResources;
     get smuflMetrics(): import("../EngravingSettings").EngravingSettings;
