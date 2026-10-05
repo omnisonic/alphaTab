@@ -94,7 +94,113 @@ export class AccidentalHelper {
     public applyAccidental(note: Note): AccidentalType {
         const noteValue = AccidentalHelper.getNoteValue(note);
         const quarterBend: boolean = note.hasQuarterToneOffset;
-        return this._getAccidental(noteValue, quarterBend, note.beat, false, note);
+        const accidental = this._getAccidental(noteValue, quarterBend, note.beat, false, note);
+        // Glyphs are created voice by voice, so the live registration above sees a later note
+        // of an earlier voice before an earlier note of a later voice. Use the accidental computed
+        // in time order across all voices instead.
+        const timeOrdered = this._getTimeOrderedAccidentals();
+        return timeOrdered.has(note.id) ? timeOrdered.get(note.id)! : accidental;
+    }
+
+    private _timeOrderedAccidentals: Map<number, AccidentalType> | null = null;
+
+    /**
+     * Computes the accidentals of all main notes in the bar in the order they are played
+     * (across all voices), so that an accidental registered by a note only affects notes
+     * sounding after it.
+     */
+    private _getTimeOrderedAccidentals(): Map<number, AccidentalType> {
+        if (this._timeOrderedAccidentals) {
+            return this._timeOrderedAccidentals;
+        }
+        const result = new Map<number, AccidentalType>();
+        this._timeOrderedAccidentals = result;
+
+        const beats: Beat[] = [];
+        for (const voice of this._bar.voices) {
+            if (!voice.isEmpty) {
+                for (const beat of voice.beats) {
+                    beats.push(beat);
+                }
+            }
+        }
+        // stable sort: beats starting together keep voice order
+        beats.sort((a, b) => a.displayStart - b.displayStart);
+
+        const registered = new Map<number, number>();
+        for (const beat of beats) {
+            for (const note of beat.notes) {
+                if (!note.isPercussion) {
+                    const r = this._computeAccidental(
+                        AccidentalHelper.getNoteValue(note),
+                        note.hasQuarterToneOffset,
+                        note,
+                        registered
+                    );
+                    result.set(note.id, r.accidental);
+                }
+            }
+        }
+        return result;
+    }
+
+    private _computeAccidental(
+        noteValue: number,
+        quarterBend: boolean,
+        note: Note | null,
+        registeredAccidentals: Map<number, number>
+    ): { steps: number; accidental: AccidentalType } {
+        const accidentalMode = note ? note.accidentalMode : NoteAccidentalMode.Default;
+        const spelling = ModelUtils.resolveSpelling(this._bar.keySignature, noteValue, accidentalMode);
+        const steps = AccidentalHelper.calculateNoteSteps(this._bar.clef, spelling);
+
+        const currentAccidentalOffset = registeredAccidentals.has(steps) ? registeredAccidentals.get(steps)! : null;
+
+        let accidentalToSet = ModelUtils.computeAccidentalForSpelling(
+            this._bar.keySignature,
+            accidentalMode,
+            spelling,
+            quarterBend,
+            currentAccidentalOffset
+        );
+
+        let skipAccidental = false;
+        switch (accidentalToSet) {
+            case AccidentalType.NaturalQuarterNoteUp:
+            case AccidentalType.SharpQuarterNoteUp:
+            case AccidentalType.FlatQuarterNoteUp:
+                // quarter notes are always set and not compared with steps
+                break;
+            default:
+                // Issue #472: Tied notes across bars do not show the accidentals but also
+                // do not register them.
+                // https://ultimatemusictheory.com/tied-notes-with-accidentals/
+                if (note && note.isTieDestination && note.beat.index === 0) {
+                    // candidate for skip, check further if start note is on the same steps
+                    const tieOriginBarRenderer = this._barRenderer.scoreRenderer.layout?.getRendererForBar(
+                        this._barRenderer.staff!.staffId,
+                        note.tieOrigin!.beat.voice.bar
+                    ) as ScoreBarRenderer | null;
+                    if (tieOriginBarRenderer && tieOriginBarRenderer.staff === this._barRenderer.staff) {
+                        const tieOriginSteps = tieOriginBarRenderer.accidentalHelper.getNoteSteps(note.tieOrigin!);
+                        if (tieOriginSteps === steps) {
+                            skipAccidental = true;
+                        }
+                    }
+                }
+
+                if (skipAccidental) {
+                    accidentalToSet = AccidentalType.None;
+                }
+                break;
+        }
+
+        const shouldRegister = !quarterBend && accidentalToSet !== AccidentalType.None;
+        if (shouldRegister) {
+            registeredAccidentals.set(steps, spelling.accidentalOffset);
+        }
+
+        return { steps, accidental: accidentalToSet };
     }
 
     /**
@@ -143,58 +249,9 @@ export class AccidentalHelper {
         if (isPercussion) {
             steps = AccidentalHelper.getPercussionSteps(note!);
         } else {
-            const accidentalMode = note ? note.accidentalMode : NoteAccidentalMode.Default;
-            const spelling = ModelUtils.resolveSpelling(this._bar.keySignature, noteValue, accidentalMode);
-            steps = AccidentalHelper.calculateNoteSteps(this._bar.clef, spelling);
-
-            const currentAccidentalOffset = this._registeredAccidentals.has(steps)
-                ? this._registeredAccidentals.get(steps)!
-                : null;
-
-            accidentalToSet = ModelUtils.computeAccidentalForSpelling(
-                this._bar.keySignature,
-                accidentalMode,
-                spelling,
-                quarterBend,
-                currentAccidentalOffset
-            );
-
-            let skipAccidental = false;
-            switch (accidentalToSet) {
-                case AccidentalType.NaturalQuarterNoteUp:
-                case AccidentalType.SharpQuarterNoteUp:
-                case AccidentalType.FlatQuarterNoteUp:
-                    // quarter notes are always set and not compared with steps
-                    break;
-                default:
-                    // Issue #472: Tied notes across bars do not show the accidentals but also
-                    // do not register them.
-                    // https://ultimatemusictheory.com/tied-notes-with-accidentals/
-                    if (note && note.isTieDestination && note.beat.index === 0) {
-                        // candidate for skip, check further if start note is on the same steps
-                        const tieOriginBarRenderer = this._barRenderer.scoreRenderer.layout?.getRendererForBar(
-                            this._barRenderer.staff!.staffId,
-                            note.tieOrigin!.beat.voice.bar
-                        ) as ScoreBarRenderer | null;
-                        if (tieOriginBarRenderer && tieOriginBarRenderer.staff === this._barRenderer.staff) {
-                            const tieOriginSteps = tieOriginBarRenderer.accidentalHelper.getNoteSteps(note.tieOrigin!);
-                            if (tieOriginSteps === steps) {
-                                skipAccidental = true;
-                            }
-                        }
-                    }
-
-                    if (skipAccidental) {
-                        accidentalToSet = AccidentalType.None;
-                    }
-                    break;
-            }
-
-            const shouldRegister = !quarterBend && accidentalToSet !== AccidentalType.None;
-
-            if (shouldRegister) {
-                this._registeredAccidentals.set(steps, spelling.accidentalOffset);
-            }
+            const r = this._computeAccidental(noteValue, quarterBend, note, this._registeredAccidentals);
+            steps = r.steps;
+            accidentalToSet = r.accidental;
         }
 
         if (note) {
