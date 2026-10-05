@@ -1,5 +1,5 @@
 /*!
- * alphaTab v1.9.0 (feature/pointer-events-touch-support, build 0)
+ * alphaTab v1.9.0 (release/844f79f9-accidentals, build 0)
  *
  * Copyright © 2026, Daniel Kuschny and Contributors, All rights reserved.
  *
@@ -204,8 +204,8 @@ class AlphaTabError extends Error {
  */
 class VersionInfo {
     static version = '1.9.0';
-    static date = '2026-04-04T02:57:53.074Z';
-    static commit = '88befeb258defd016552acbf537aac9626e030e2';
+    static date = '2026-10-05T18:25:47.565Z';
+    static commit = 'ab2287a2704ee42fe5f06e86ae52d99fccc5d18b';
     static print(print) {
         print(`alphaTab ${VersionInfo.version}`);
         print(`commit: ${VersionInfo.commit}`);
@@ -25073,7 +25073,83 @@ class AccidentalHelper {
     applyAccidental(note) {
         const noteValue = AccidentalHelper.getNoteValue(note);
         const quarterBend = note.hasQuarterToneOffset;
-        return this._getAccidental(noteValue, quarterBend, note.beat, false, note);
+        const accidental = this._getAccidental(noteValue, quarterBend, note.beat, false, note);
+        // Glyphs are created voice by voice, so the live registration above sees a later note
+        // of an earlier voice before an earlier note of a later voice. Use the accidental computed
+        // in time order across all voices instead.
+        const timeOrdered = this._getTimeOrderedAccidentals();
+        return timeOrdered.has(note.id) ? timeOrdered.get(note.id) : accidental;
+    }
+    _timeOrderedAccidentals = null;
+    /**
+     * Computes the accidentals of all main notes in the bar in the order they are played
+     * (across all voices), so that an accidental registered by a note only affects notes
+     * sounding after it.
+     */
+    _getTimeOrderedAccidentals() {
+        if (this._timeOrderedAccidentals) {
+            return this._timeOrderedAccidentals;
+        }
+        const result = new Map();
+        this._timeOrderedAccidentals = result;
+        const beats = [];
+        for (const voice of this._bar.voices) {
+            if (!voice.isEmpty) {
+                for (const beat of voice.beats) {
+                    beats.push(beat);
+                }
+            }
+        }
+        // stable sort: beats starting together keep voice order
+        beats.sort((a, b) => a.displayStart - b.displayStart);
+        const registered = new Map();
+        for (const beat of beats) {
+            for (const note of beat.notes) {
+                if (!note.isPercussion) {
+                    const r = this._computeAccidental(AccidentalHelper.getNoteValue(note), note.hasQuarterToneOffset, note, registered);
+                    result.set(note.id, r.accidental);
+                }
+            }
+        }
+        return result;
+    }
+    _computeAccidental(noteValue, quarterBend, note, registeredAccidentals) {
+        const accidentalMode = note ? note.accidentalMode : NoteAccidentalMode.Default;
+        const spelling = ModelUtils.resolveSpelling(this._bar.keySignature, noteValue, accidentalMode);
+        const steps = AccidentalHelper.calculateNoteSteps(this._bar.clef, spelling);
+        const currentAccidentalOffset = registeredAccidentals.has(steps) ? registeredAccidentals.get(steps) : null;
+        let accidentalToSet = ModelUtils.computeAccidentalForSpelling(this._bar.keySignature, accidentalMode, spelling, quarterBend, currentAccidentalOffset);
+        let skipAccidental = false;
+        switch (accidentalToSet) {
+            case AccidentalType.NaturalQuarterNoteUp:
+            case AccidentalType.SharpQuarterNoteUp:
+            case AccidentalType.FlatQuarterNoteUp:
+                // quarter notes are always set and not compared with steps
+                break;
+            default:
+                // Issue #472: Tied notes across bars do not show the accidentals but also
+                // do not register them.
+                // https://ultimatemusictheory.com/tied-notes-with-accidentals/
+                if (note && note.isTieDestination && note.beat.index === 0) {
+                    // candidate for skip, check further if start note is on the same steps
+                    const tieOriginBarRenderer = this._barRenderer.scoreRenderer.layout?.getRendererForBar(this._barRenderer.staff.staffId, note.tieOrigin.beat.voice.bar);
+                    if (tieOriginBarRenderer && tieOriginBarRenderer.staff === this._barRenderer.staff) {
+                        const tieOriginSteps = tieOriginBarRenderer.accidentalHelper.getNoteSteps(note.tieOrigin);
+                        if (tieOriginSteps === steps) {
+                            skipAccidental = true;
+                        }
+                    }
+                }
+                if (skipAccidental) {
+                    accidentalToSet = AccidentalType.None;
+                }
+                break;
+        }
+        const shouldRegister = !quarterBend && accidentalToSet !== AccidentalType.None;
+        if (shouldRegister) {
+            registeredAccidentals.set(steps, spelling.accidentalOffset);
+        }
+        return { steps, accidental: accidentalToSet };
     }
     /**
      * Calculates the accidental for the given note value and assignes the value to it.
@@ -25107,43 +25183,9 @@ class AccidentalHelper {
             steps = AccidentalHelper.getPercussionSteps(note);
         }
         else {
-            const accidentalMode = note ? note.accidentalMode : NoteAccidentalMode.Default;
-            const spelling = ModelUtils.resolveSpelling(this._bar.keySignature, noteValue, accidentalMode);
-            steps = AccidentalHelper.calculateNoteSteps(this._bar.clef, spelling);
-            const currentAccidentalOffset = this._registeredAccidentals.has(steps)
-                ? this._registeredAccidentals.get(steps)
-                : null;
-            accidentalToSet = ModelUtils.computeAccidentalForSpelling(this._bar.keySignature, accidentalMode, spelling, quarterBend, currentAccidentalOffset);
-            let skipAccidental = false;
-            switch (accidentalToSet) {
-                case AccidentalType.NaturalQuarterNoteUp:
-                case AccidentalType.SharpQuarterNoteUp:
-                case AccidentalType.FlatQuarterNoteUp:
-                    // quarter notes are always set and not compared with steps
-                    break;
-                default:
-                    // Issue #472: Tied notes across bars do not show the accidentals but also
-                    // do not register them.
-                    // https://ultimatemusictheory.com/tied-notes-with-accidentals/
-                    if (note && note.isTieDestination && note.beat.index === 0) {
-                        // candidate for skip, check further if start note is on the same steps
-                        const tieOriginBarRenderer = this._barRenderer.scoreRenderer.layout?.getRendererForBar(this._barRenderer.staff.staffId, note.tieOrigin.beat.voice.bar);
-                        if (tieOriginBarRenderer && tieOriginBarRenderer.staff === this._barRenderer.staff) {
-                            const tieOriginSteps = tieOriginBarRenderer.accidentalHelper.getNoteSteps(note.tieOrigin);
-                            if (tieOriginSteps === steps) {
-                                skipAccidental = true;
-                            }
-                        }
-                    }
-                    if (skipAccidental) {
-                        accidentalToSet = AccidentalType.None;
-                    }
-                    break;
-            }
-            const shouldRegister = !quarterBend && accidentalToSet !== AccidentalType.None;
-            if (shouldRegister) {
-                this._registeredAccidentals.set(steps, spelling.accidentalOffset);
-            }
+            const r = this._computeAccidental(noteValue, quarterBend, note, this._registeredAccidentals);
+            steps = r.steps;
+            accidentalToSet = r.accidental;
         }
         if (note) {
             this._appliedScoreSteps.set(note.id, steps);
@@ -52472,6 +52514,32 @@ class AlphaTabApiBase {
         }
     }
     /**
+     * Changes the GM program (instrument) of the given tracks and regenerates the MIDI.
+     * @param tracks The list of tracks to change.
+     * @param program The GM program number (0–127).
+     * @category Methods - Player
+     */
+    changeTrackProgram(tracks, program) {
+        for (const track of tracks) {
+            track.playbackInfo.program = program;
+            // Also update any per-beat instrument automations so MIDI regeneration picks them up
+            for (const staff of track.staves) {
+                for (const bar of staff.bars) {
+                    for (const voice of bar.voices) {
+                        for (const beat of voice.beats) {
+                            for (const automation of beat.automations) {
+                                if (automation.type === AutomationType.Instrument) {
+                                    automation.value = program;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        this.loadMidiForScore();
+    }
+    /**
      * Changes the given tracks to be played solo or not.
      * @param tracks The list of tracks to play solo or not.
      * @param solo If set to true, the tracks will be added to the solo list. If false, they are removed.
@@ -62369,9 +62437,11 @@ class BeamingHelper {
 class ReservedLayoutAreaSlot {
     topY = 0;
     bottomY = 0;
-    constructor(topY, bottomY) {
+    stemDirection = BeamDirection.Up;
+    constructor(topY, bottomY, stemDirection) {
         this.topY = topY;
         this.bottomY = bottomY;
+        this.stemDirection = stemDirection;
     }
 }
 /**
@@ -62385,8 +62455,8 @@ class ReservedLayoutArea {
     constructor(beat) {
         this.beat = beat;
     }
-    addSlot(topY, bottomY) {
-        this.slots.push(new ReservedLayoutAreaSlot(topY, bottomY));
+    addSlot(topY, bottomY, stemDirection = BeamDirection.Up) {
+        this.slots.push(new ReservedLayoutAreaSlot(topY, bottomY, stemDirection));
         if (this.topY === -1e3) {
             this.topY = topY;
             this.bottomY = bottomY;
@@ -62431,14 +62501,14 @@ class BarCollisionHelper {
         }
         return [minY, maxY];
     }
-    reserveBeatSlot(beat, topY, bottomY) {
+    reserveBeatSlot(beat, topY, bottomY, stemDirection = BeamDirection.Up) {
         if (topY === bottomY) {
             return;
         }
         if (!this.reservedLayoutAreasByDisplayTime.has(beat.displayStart)) {
             this.reservedLayoutAreasByDisplayTime.set(beat.displayStart, new ReservedLayoutArea(beat));
         }
-        this.reservedLayoutAreasByDisplayTime.get(beat.displayStart).addSlot(topY, bottomY);
+        this.reservedLayoutAreasByDisplayTime.get(beat.displayStart).addSlot(topY, bottomY, stemDirection);
         if (beat.isRest) {
             this.registerRest(beat);
         }
@@ -62452,54 +62522,45 @@ class BarCollisionHelper {
         }
     }
     applyRestCollisionOffset(beat, currentY, linesToPixel) {
-        // for the first voice we do not need collision detection on rests
-        // we just place it normally
-        if (beat.voice.index > 0) {
-            // From the Spring-Rod poisitioning we have the guarantee
-            // that 2 timewise subsequent elements can never collide
-            // on the horizontal axis. So we only need to check for collisions
-            // of elements at the current time position
-            // if there are none, we can just use the line
-            if (this.reservedLayoutAreasByDisplayTime.has(beat.playbackStart)) {
-                // do check for collisions we need to obtain the range on which the
-                // restglyph is placed
-                // rest glyphs have their ancor
-                const restSizes = BeamingHelper.computeLineHeightsForRest(beat.duration).map(i => i * linesToPixel);
-                const oldRestTopY = currentY - restSizes[0];
-                const oldRestBottomY = currentY + restSizes[1];
-                let newRestTopY = oldRestTopY;
-                const reservedSlots = this.reservedLayoutAreasByDisplayTime.get(beat.playbackStart);
-                let hasCollision = false;
-                for (const slot of reservedSlots.slots) {
-                    if ((oldRestTopY >= slot.topY && oldRestTopY <= slot.bottomY) ||
-                        (oldRestBottomY >= slot.topY && oldRestBottomY <= slot.bottomY)) {
-                        hasCollision = true;
-                        break;
-                    }
+        // From the Spring-Rod positioning we have the guarantee
+        // that 2 timewise subsequent elements can never collide
+        // on the horizontal axis. So we only need to check for collisions
+        // of elements at the current time position.
+        // if there are none, we can just use the default position.
+        if (this.reservedLayoutAreasByDisplayTime.has(beat.displayStart)) {
+            const restSizes = BeamingHelper.computeLineHeightsForRest(beat.duration).map(i => i * linesToPixel);
+            const oldRestTopY = currentY - restSizes[0];
+            const oldRestBottomY = currentY + restSizes[1];
+            let newRestTopY = oldRestTopY;
+            const reservedSlots = this.reservedLayoutAreasByDisplayTime.get(beat.displayStart);
+            let collidingSlot = null;
+            for (const slot of reservedSlots.slots) {
+                if ((oldRestTopY >= slot.topY && oldRestTopY <= slot.bottomY) ||
+                    (oldRestBottomY >= slot.topY && oldRestBottomY <= slot.bottomY)) {
+                    collidingSlot = slot;
+                    break;
                 }
-                if (hasCollision) {
-                    // second voice above, the others below
-                    if (beat.voice.index === 1) {
-                        // move rest above top position
-                        // TODO: rest must align with note lines
-                        newRestTopY = reservedSlots.topY - restSizes[1] - restSizes[0];
-                    }
-                    else {
-                        // move rest above top position
-                        // TODO: rest must align with note lines
-                        newRestTopY = reservedSlots.bottomY;
-                    }
-                    const newRestBottomY = newRestTopY + restSizes[0] + restSizes[1];
-                    // moving always happens in full stave spaces
-                    const staveSpace = linesToPixel * 2;
-                    const distanceInLines = Math.ceil(Math.abs(newRestTopY - oldRestTopY) / staveSpace);
-                    // register new min/max offsets
-                    reservedSlots.addSlot(newRestTopY, newRestBottomY);
-                    if (newRestTopY < oldRestTopY) {
-                        return distanceInLines * -staveSpace;
-                    }
-                    return distanceInLines * staveSpace;
+            }
+            if (collidingSlot) {
+                const staveSpacePadding = linesToPixel * 2;
+                if (collidingSlot.stemDirection === BeamDirection.Up) {
+                    // colliding notes have stems up: they occupy space above, rest displaces downward
+                    newRestTopY = reservedSlots.bottomY + staveSpacePadding;
                 }
+                else {
+                    // colliding notes have stems down: they occupy space below, rest displaces upward
+                    newRestTopY = reservedSlots.topY - restSizes[1] - restSizes[0] - staveSpacePadding;
+                }
+                const newRestBottomY = newRestTopY + restSizes[0] + restSizes[1];
+                // moving always happens in full stave spaces
+                const staveSpace = linesToPixel * 2;
+                const distanceInLines = Math.ceil(Math.abs(newRestTopY - oldRestTopY) / staveSpace);
+                // register new min/max offsets
+                reservedSlots.addSlot(newRestTopY, newRestBottomY);
+                if (newRestTopY < oldRestTopY) {
+                    return distanceInLines * -staveSpace;
+                }
+                return distanceInLines * staveSpace;
             }
         }
         return 0;
@@ -72227,7 +72288,7 @@ class ScoreBeatGlyph extends BeatOnNoteGlyphBase {
                 highestNotePosition = this.getHighestNoteY(NoteYPosition.Top);
                 lowestNotePosition = this.getLowestNoteY(NoteYPosition.BottomWithStem) + offset;
             }
-            this.renderer.collisionHelper.reserveBeatSlot(this.container.beat, highestNotePosition, lowestNotePosition);
+            this.renderer.collisionHelper.reserveBeatSlot(this.container.beat, highestNotePosition, lowestNotePosition, direction);
         }
     }
     _createRestGlyphs() {
@@ -72246,15 +72307,7 @@ class ScoreBeatGlyph extends BeatOnNoteGlyphBase {
         restGlyph.beat = this.container.beat;
         this.addNormal(restGlyph);
         if (this.renderer.bar.isMultiVoice) {
-            if (this.container.beat.voice.index === 0) {
-                const restSizes = BeamingHelper.computeLineHeightsForRest(this.container.beat.duration);
-                const restTop = restGlyph.y - sr.getScoreHeight(restSizes[0]);
-                const restBottom = restGlyph.y + sr.getScoreHeight(restSizes[1]);
-                this.renderer.collisionHelper.reserveBeatSlot(this.container.beat, restTop, restBottom);
-            }
-            else {
-                this.renderer.collisionHelper.registerRest(this.container.beat);
-            }
+            this.renderer.collisionHelper.registerRest(this.container.beat);
         }
         //
         // Note dots
