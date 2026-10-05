@@ -196,6 +196,29 @@ describe('MusicNotationTests', () => {
         );
     });
 
+    it('accidentals-cross-voice', async () => {
+        // the G#4 of voice 2 on beat 2 sounds before the G#4 of voice 1 on beat 3,
+        // so voice 2 needs the sharp and voice 1 does not
+        const settings = new Settings();
+        settings.display.layoutMode = LayoutMode.Parchment;
+        await VisualTestHelper.runVisualTestTex(
+            `
+            \\track
+            \\staff {score}
+            \\voiceMode barWise
+            \\voice
+            B4.2 G#4.4 B4.4
+            \\voice
+            E4.4 G#4.4 E4.4 E4.4
+            `,
+            'test-data/visual-tests/music-notation/accidentals-cross-voice.png',
+            settings,
+            o => {
+                o.runs[0].width = 400;
+            }
+        );
+    });
+
     it('bar-lines', async () => {
         await VisualTestHelper.runVisualTest('music-notation/barlines.xml');
     });
