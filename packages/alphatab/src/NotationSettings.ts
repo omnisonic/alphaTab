@@ -49,8 +49,8 @@ export enum FingeringMode {
     SingleNoteEffectBandForcePiano = 3,
     /**
      * Left-hand fingerings are shown next to the note heads in the standard notation staff.
-     * Right-hand fingerings of the first voice are shown in an effect band above the staff, right-hand fingerings
-     * of the other voices in an effect band below the staff (stacked for chords).
+     * Right-hand fingerings are shown in effect bands (stacked for chords): above the staff for beats with stems up
+     * and in single-voice bars, below the staff for stems-down beats in multi-voice bars.
      */
     ScoreRightHandEffectBand = 4
 }

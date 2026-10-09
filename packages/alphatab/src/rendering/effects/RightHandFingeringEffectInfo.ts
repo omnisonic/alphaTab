@@ -9,6 +9,8 @@ import { EffectBandPlacementCategory, type EffectInfo } from '@coderline/alphata
 import type { EffectGlyph } from '@coderline/alphatab/rendering/glyphs/EffectGlyph';
 import { FingeringGroupGlyph } from '@coderline/alphatab/rendering/glyphs/FingeringGroupGlyph';
 import { StackedFingeringGlyph } from '@coderline/alphatab/rendering/glyphs/StackedFingeringGlyph';
+import { LineBarRenderer } from '@coderline/alphatab/rendering/LineBarRenderer';
+import { BeamDirection } from '@coderline/alphatab/rendering/utils/BeamDirection';
 
 function rightHandNotes(beat: Beat): Note[] {
     const notes: Note[] = [];
@@ -21,10 +23,25 @@ function rightHandNotes(beat: Beat): Note[] {
 }
 
 /**
- * Right-hand fingerings for {@link FingeringMode.ScoreRightHandEffectBand}: the first voice above the staff,
- * the other voices below the staff.
+ * Whether the right-hand fingering of the beat belongs above the staff. In multi-voice bars this follows the stem
+ * direction (stems up above, stems down below), which reflects the file's own voicing regardless of which voice
+ * carries the melody. Single-voice bars always use the band above.
  */
-function createRightHandFingeringEffectInfo(effectId: string, upperVoice: boolean): EffectInfo {
+function isAboveStaff(renderer: BarRendererBase, beat: Beat): boolean {
+    if (!beat.voice.bar.isMultiVoice) {
+        return true;
+    }
+    if (renderer instanceof LineBarRenderer) {
+        return renderer.getBeatDirection(beat) === BeamDirection.Up;
+    }
+    return beat.voice.index === 0;
+}
+
+/**
+ * Right-hand fingerings for {@link FingeringMode.ScoreRightHandEffectBand}: stems-up beats above the staff,
+ * stems-down beats below the staff.
+ */
+function createRightHandFingeringEffectInfo(effectId: string, above: boolean): EffectInfo {
     return {
         effectId,
         notationElement: NotationElement.EffectFingering,
@@ -34,7 +51,7 @@ function createRightHandFingeringEffectInfo(effectId: string, upperVoice: boolea
             if (
                 beat.isRest ||
                 renderer.settings.notation.fingeringMode !== FingeringMode.ScoreRightHandEffectBand ||
-                upperVoice !== (beat.voice.index === 0)
+                above !== isAboveStaff(renderer, beat)
             ) {
                 return false;
             }
