@@ -5,10 +5,10 @@ import { StaveProfile } from '@coderline/alphatab/StaveProfile';
 import { VisualTestHelper } from 'test/visualTests/VisualTestHelper';
 
 // rf 1-4 = p i m a, lf 2-5 = left-hand fingers 1-4
-function settings(): Settings {
+function settings(mode: FingeringMode = FingeringMode.ScoreRightHandEffectBand): Settings {
     const s = new Settings();
     s.display.staveProfile = StaveProfile.Score;
-    s.notation.fingeringMode = FingeringMode.ScoreRightHandEffectBand;
+    s.notation.fingeringMode = mode;
     return s;
 }
 
@@ -56,6 +56,18 @@ describe('RightHandFingeringTests', () => {
             ':4 3.6{rf 1} (0.3{rf 2} 1.2{rf 3} 0.1{rf 4}) 3.1{rf 3 lf 4} 5.1{rf 4 lf 2}',
             'test-data/visual-tests/right-hand-fingering/single-voice.png',
             settings()
+        );
+    });
+
+    // ScoreLeftHandOnly: left-hand fingers next to the notes, no right-hand fingering anywhere
+    it('left-hand-only', async () => {
+        await VisualTestHelper.runVisualTestTex(
+            '\\voice ' +
+                ':4 3.1{rf 3 lf 4} 1.2{rf 2 lf 2} 0.1{rf 4} 3.1{rf 3 lf 4}' +
+                ' \\voice ' +
+                ':2 3.5{rf 1 lf 4} 0.4{rf 1}',
+            'test-data/visual-tests/right-hand-fingering/left-hand-only.png',
+            settings(FingeringMode.ScoreLeftHandOnly)
         );
     });
 });

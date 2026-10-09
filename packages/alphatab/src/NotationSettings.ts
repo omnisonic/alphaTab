@@ -52,7 +52,12 @@ export enum FingeringMode {
      * Right-hand fingerings are shown in effect bands (stacked for chords): above the staff for beats with stems up
      * and in single-voice bars, below the staff for stems-down beats in multi-voice bars.
      */
-    ScoreRightHandEffectBand = 4
+    ScoreRightHandEffectBand = 4,
+    /**
+     * Left-hand fingerings are shown next to the note heads in the standard notation staff,
+     * right-hand fingerings are not shown.
+     */
+    ScoreLeftHandOnly = 5
 }
 
 /**
