@@ -105,15 +105,12 @@ declare class AlphaSynth extends AlphaSynthBase {
  * @public
  */
 declare class AlphaSynthBase implements IAlphaSynth {
-
-
     protected isSoundFontLoaded: boolean;
     private _isMidiLoaded;
     private _tickPosition;
     private _timePosition;
     private _metronomeVolume;
     private _countInVolume;
-
     protected midiEventsPlayedFilterSet: Set<MidiEventType>;
     private _notPlayedSamples;
     private _synthStopping;
@@ -149,7 +146,6 @@ declare class AlphaSynthBase implements IAlphaSynth {
     get isLooping(): boolean;
     set isLooping(value: boolean);
     destroy(): void;
-
     protected onSampleRequest(): void;
     play(): boolean;
     private _playInternal;
@@ -203,8 +199,6 @@ declare class AlphaSynthBase implements IAlphaSynth {
      * @lateinit
      */
     readonly playbackRangeChanged: IEventEmitterOfT<PlaybackRangeChangedEventArgs>;
-
-
     loadBackingTrack(_score: Score): void;
     updateSyncPoints(_syncPoints: BackingTrackSyncPoint[]): void;
 }
@@ -232,6 +226,7 @@ declare class AlphaSynthMidiFileHandler implements IMidiFileHandler {
     addTickShift(tickShift: number): void;
     addTimeSignature(tick: number, timeSignatureNumerator: number, timeSignatureDenominator: number): void;
     addRest(track: number, tick: number, channel: number): void;
+    addMetronome(tick: number, counter: number, durationInTicks: number): void;
     addNote(track: number, start: number, length: number, key: number, velocity: number, channel: number): void;
     private static _fixValue;
     addControlChange(track: number, tick: number, channel: number, controller: ControllerType, value: number): void;
@@ -697,7 +692,6 @@ export declare class AlphaTabApiBase<TSettings> {
      */
     renderTracks(tracks: Track[], renderHints?: RenderHints): void;
     private _internalRenderTracks;
-
     private _appendRenderResult;
     private _updateRenderResult;
     /**
@@ -1450,6 +1444,13 @@ export declare class AlphaTabApiBase<TSettings> {
      */
     changeTrackVolume(tracks: Track[], volume: number): void;
     /**
+     * Changes the GM program (instrument) of the given tracks and regenerates the MIDI.
+     * @param tracks The list of tracks to change.
+     * @param program The GM program number (0–127).
+     * @category Methods - Player
+     */
+    changeTrackProgram(tracks: Track[], program: number): void;
+    /**
      * Changes the given tracks to be played solo or not.
      * @param tracks The list of tracks to play solo or not.
      * @param solo If set to true, the tracks will be added to the solo list. If false, they are removed.
@@ -2090,6 +2091,7 @@ export declare class AlphaTabApiBase<TSettings> {
     private _onBeatMouseMove;
     private _onNoteMouseMove;
     private _onBeatMouseUp;
+    private _seekToBeat;
     private _onNoteMouseUp;
     private _updateSelectionCursor;
     private _setupClickHandling;
@@ -2177,6 +2179,7 @@ export declare class AlphaTabApiBase<TSettings> {
      * ```
      */
     applyPlaybackRangeFromHighlight(): void;
+    private _internalApplyPlaybackRangeFromHighlight;
     /**
      * Clears the highlight markers marking the currently selected playback range.
      *
@@ -2508,7 +2511,6 @@ export declare class AlphaTabApiBase<TSettings> {
      *
      */
     readonly error: IEventEmitterOfT<Error>;
-
     /**
      * This event is fired when all required data for playback is loaded and ready.
      * @remarks
@@ -3150,8 +3152,9 @@ export declare enum AlphaTabErrorType {
 }
 
 /**
- * Represents a metronome event. This event is emitted by the synthesizer only during playback and
- * is typically not part of the midi file itself.
+ * Represents a metronome event. alphaTab places these events bar by bar into the midi files generated for playback
+ * (respecting repeats, time signatures and pick-up bars). They are not written into standard midi files (SMF1 mode).
+ * For midi files without these events the synthesizer generates them during playback according to the time signatures.
  * @public
  */
 declare class AlphaTabMetronomeEvent extends AlphaTabSysExEvent {
@@ -3242,6 +3245,7 @@ export declare namespace alphaTex {
         IAlphaTexAstNode,
         IAlphaTexMetaDataTagPrefixNode,
         IAlphaTexNoteValueNode,
+        IAlphaTexStringSeparatorNode,
         AlphaTexLexer,
         AlphaTexParseMode,
         AlphaTexParser,
@@ -3287,7 +3291,6 @@ declare interface AlphaTexArgumentList extends AlphaTexAstNode {
      * The close parenthesis token grouping the arguments.
      */
     closeParenthesis?: AlphaTexParenthesisCloseTokenNode;
-
     /**
      * A list of indices to signatures which were selected as candidates matching
      * this argument list.
@@ -3626,6 +3629,10 @@ declare enum AlphaTexDiagnosticCode {
      */
     AT220 = 220,
     /**
+     * A string number can only be specified on pitched notes, use the 'fret.string' syntax to specify the string of fretted notes.
+     */
+    AT221 = 221,
+    /**
      * Expected no arguments, but found some.
      */
     AT300 = 300,
@@ -3673,7 +3680,7 @@ declare enum AlphaTexDiagnosticsSeverity {
  * @record
  * @public
  */
-declare interface AlphaTexDotTokenNode extends AlphaTexTokenNode {
+declare interface AlphaTexDotTokenNode extends AlphaTexTokenNode, IAlphaTexStringSeparatorNode {
     nodeType: AlphaTexNodeType.Dot;
 }
 
@@ -3763,7 +3770,6 @@ declare class AlphaTexImporter extends ScoreImporter implements IAlphaTexImporte
     private _beatDuration;
     private _parseDuration;
     private _note;
-
     applyStaffNoteKind(staff: Staff, staffNoteKind: AlphaTexStaffNoteKind): void;
     private _noteEffects;
     private _handleTransposition;
@@ -3838,7 +3844,6 @@ declare interface AlphaTexMetaDataNode extends AlphaTexAstNode {
      * The optional properties defined for the metadata.
      */
     properties?: AlphaTexPropertiesNode;
-
 }
 
 /**
@@ -3873,20 +3878,21 @@ declare enum AlphaTexNodeType {
     RParen = 7,
     Colon = 8,
     Asterisk = 9,
-    Ident = 10,
-    Tag = 11,
-    Meta = 12,
-    Arguments = 13,
-    Props = 14,
-    Prop = 15,
-    Number = 16,
-    String = 17,
-    Score = 18,
-    Bar = 19,
-    Beat = 20,
-    Duration = 21,
-    NoteList = 22,
-    Note = 23
+    At = 10,
+    Ident = 100,
+    Tag = 101,
+    Meta = 102,
+    Arguments = 103,
+    Props = 104,
+    Prop = 105,
+    Number = 106,
+    String = 107,
+    Score = 200,
+    Bar = 201,
+    Beat = 202,
+    Duration = 203,
+    NoteList = 204,
+    Note = 205
 }
 
 /**
@@ -3923,9 +3929,9 @@ declare interface AlphaTexNoteNode extends AlphaTexAstNode {
      */
     noteValue: IAlphaTexNoteValueNode;
     /**
-     * The dot separating the note value and the string for fretted/stringed instruments like guitars.
+     * The dot or @ separating the note value and the string for fretted/stringed instruments like guitars.
      */
-    noteStringDot?: AlphaTexDotTokenNode;
+    noteStringSeparator?: IAlphaTexStringSeparatorNode;
     /**
      * The string value for fretted/stringed notes like guitars.
      */
@@ -4003,7 +4009,6 @@ declare class AlphaTexParser {
     get lexerDiagnostics(): AlphaTexDiagnosticBag;
     readonly parserDiagnostics: AlphaTexDiagnosticBag;
     addParserDiagnostic(diagnostics: AlphaTexDiagnostic): void;
-
     constructor(source: string);
     read(): AlphaTexScoreNode;
     private _score;
@@ -4291,6 +4296,10 @@ declare class Automation {
     syncPointValue: SyncPointData | undefined;
     /**
      * Gets or sets the relative position of of the automation.
+     * @remarks
+     * The position is relative to the full duration of the bar's time signature (0 = bar start, 1 = bar end).
+     * This also applies to pick-up bars (`MasterBar.isAnacrusis`) which are shorter than their time signature:
+     * an automation on the 3rd eighth note of a 3/8 pick-up in 2/4 has the position 0.5 (as written by Guitar Pro).
      */
     ratioPosition: number;
     /**
@@ -4334,7 +4343,7 @@ declare enum AutomationType {
     /**
      * Midi Bank change.
      */
-    Bank = 4
+    Bank = 5
 }
 
 /**
@@ -4408,7 +4417,6 @@ declare class BackingTrackSyncPoint {
  */
 declare class Bar {
     private static _globalBarId;
-
     /**
      * Gets or sets the unique id of this bar.
      */
@@ -4516,11 +4524,31 @@ declare class Bar {
      */
     keySignatureType: KeySignatureType;
     /**
-     * How bar numbers should be displayed.
-     * If specified, overrides the value from the stylesheet on score level.
+     * How bar numbers should be displayed on this specific bar.
+     * @deprecated Use {@link scoreDisplay}, {@link tabDisplay},
+     * {@link slashDisplay}, or {@link numberedDisplay} `.barNumber` for
+     * per-staff-type per-bar control. The setter broadcasts the value
+     * to all four override bags (lazy-creating each); on `undefined`
+     * it clears `.barNumber` on each existing bag without removing it.
      */
-    barNumberDisplay?: BarNumberDisplay;
-
+    get barNumberDisplay(): BarNumberDisplay | undefined;
+    set barNumberDisplay(value: BarNumberDisplay | undefined);
+    /**
+     * Per-bar override for the standard-notation staff's display.
+     */
+    scoreDisplay?: ScoreBarOverride;
+    /**
+     * Per-bar override for the tablature staff's display.
+     */
+    tabDisplay?: TabBarOverride;
+    /**
+     * Per-bar override for the slash staff's display.
+     */
+    slashDisplay?: SlashBarOverride;
+    /**
+     * Per-bar override for the numbered (jianpu) staff's display.
+     */
+    numberedDisplay?: NumberedBarOverride;
     /**
      * The bar line to draw on the left side of the bar with an "automatic" type resolved to the actual one.
      * @param isFirstOfSystem  Whether the bar is the first one in the system.
@@ -4787,12 +4815,6 @@ declare class BeamingRules {
      * The map value defines the "groups" placed within the sliced.
      */
     groups: Map<Duration, number[]>;
-
-
-
-
-
-
 }
 
 /**
@@ -4805,7 +4827,6 @@ declare class BeamingRules {
  */
 declare class Beat {
     private static _globalBeatId;
-
     /**
      * Gets or sets the unique id of this beat.
      * @clone_ignore
@@ -4930,6 +4951,7 @@ declare class Beat {
     /**
      * Gets a value indicating whether this beat is fade-in.
      * @deprecated Use `fade`
+     * @json_read_only
      */
     get fadeIn(): boolean;
     /**
@@ -4973,6 +4995,16 @@ declare class Beat {
      * Whether this beat should rendered and played as "dead slapped".
      */
     deadSlapped: boolean;
+    /**
+     * Gets or sets the chromatic tone value (0–11) of the pitch at which this rest should be displayed.
+     * A value of NaN means use the default position formula.
+     */
+    restDisplayTone: number;
+    /**
+     * Gets or sets the octave at which this rest should be displayed.
+     * Only relevant when {@link restDisplayTone} is set. NaN means use the default position formula.
+     */
+    restDisplayOctave: number;
     /**
      * Gets or sets the brush type applied to the notes of this beat.
      */
@@ -5065,6 +5097,7 @@ declare class Beat {
     /**
      * The speed of the tremolo.
      * @deprecated Set {@link tremoloPicking} instead.
+     * @json_read_only
      */
     get tremoloSpeed(): Duration | null;
     /**
@@ -5582,22 +5615,10 @@ declare class Bounds {
  * @public
  */
 declare class BoundsLookup {
-    /**
-     * @target web
-     */
-    toJson(): unknown;
-    /**
-     * @target web
-     */
-    static fromJson(json: unknown, score: Score): BoundsLookup;
-    /**
-     * @target web
-     */
+    toJson(): Map<string, unknown>;
+    static fromJson(json: Map<string, unknown> | null, score: Score): BoundsLookup | null;
     private static _boundsFromJson;
-    /**
-     * @target web
-     */
-    private _boundsToJson;
+    private static _boundsToJson;
     private _beatLookup;
     private _masterBarLookup;
     private _currentStaffSystem;
@@ -6449,6 +6470,34 @@ export declare class DisplaySettings {
      */
     stretchForce: number;
     /**
+     * The proportional spacing ratio between successive note durations.
+     * @since 1.9.0
+     * @category Display
+     * @defaultValue `Math.SQRT2` (≈ 1.414, matches Dorico's default)
+     * @remarks
+     * Controls the *shape* of the horizontal spacing curve - how much wider a note of duration `2d` is rendered relative to a note of duration `d`.
+     * AlphaTab uses a power-law spacing model (the same approach used by Dorico, MuseScore and Finale): doubling the note duration multiplies its
+     * allocated horizontal space by `spacingRatio`.
+     *
+     * Reference values for cross-application comparison:
+     *
+     * | Application / Style        | Ratio                | Character                          |
+     * |----------------------------|----------------------|------------------------------------|
+     * | Dorico default             | √2 ≈ 1.414           | Tight, efficient, orchestral       |
+     * | MuseScore default          | 1.5                  | Balanced, general-purpose          |
+     * | Finale default (Fibonacci) | φ ≈ 1.618            | Loose, traditional engraving       |
+     *
+     * AlphaTab defaults to `√2` (Dorico's value). This produces tighter spacing at long
+     * durations than the alternatives, which matters for guitar tablature where rest bars and
+     * whole notes are common - looser ratios make those bars dominate system width.
+     *
+     * This setting is orthogonal to {@link stretchForce}: `spacingRatio` controls the *shape* of the spacing (proportions between durations),
+     * `stretchForce` controls the overall *density* (how tightly or loosely the music is packed). Both can be adjusted independently.
+     *
+     * Values are clamped to the range `[1.2, 2.0]`. A value of `1.0` would produce equal spacing for all durations and is rejected.
+     */
+    spacingRatio: number;
+    /**
      * The layouting mode used to arrange the the notation.
      * @remarks
      * AlphaTab has various layout engines that arrange the rendered bars differently. This setting controls which layout mode is used.
@@ -6514,18 +6563,59 @@ export declare class DisplaySettings {
      */
     barCountPerPartial: number;
     /**
-     * Whether to justify also the last system in page layouts.
+     * The minimum fullness ratio at which the last system in a flow is justified to fill the
+     * available staff width.
+     * @since 1.9.0
+     * @category Display
+     * @defaultValue `1`
      * @remarks
-     * Setting this option to `true` tells alphaTab to also justify the last system (row) like it
-     * already does for the systems which are full.
+     * The "fullness" of a system is its natural unjustified width divided by the available
+     * staff width. The last system is stretched to full width only when its fullness is
+     * **greater than or equal to** this threshold; otherwise it renders at its natural width.
+     *
+     * Following industry convention (Dorico, MuseScore), a sparsely populated final system
+     * looks better compact than spread across the full page. The threshold lets users tune
+     * where that boundary sits.
+     *
+     * Common values:
+     *
+     * - `1` (default) — never justify the last system. Equivalent to the legacy
+     *   `justifyLastSystem = false` behaviour.
+     * - `0` — always justify the last system, even when sparse. Equivalent to the legacy
+     *   `justifyLastSystem = true` behaviour.
+     * - `0.4`–`0.7` — Dorico/MuseScore-style: justify when the last system is reasonably full,
+     *   leave compact when only a few bars trail.
+     *
+     * The threshold is bypassed when the last system is naturally wider than the available
+     * staff width - in that case the system still compresses to fit, since otherwise content
+     * would overflow horizontally.
+     *
+     * Values outside `[0, 1]` are clamped.
+     */
+    lastSystemFillThreshold: number;
+    /**
+     * Whether to justify also the last system in page layouts.
+     *
+     * @remarks
+     * @deprecated Use {@link lastSystemFillThreshold} for fine-grained control over when the
+     * last system is justified. This property is now a thin wrapper:
+     *
+     * - **Get** returns `true` when {@link lastSystemFillThreshold} is less than `1` (i.e. some
+     *   degree of last-system justification is enabled), `false` otherwise.
+     * - **Set** to `true` writes `lastSystemFillThreshold = 0` (always justify regardless of
+     *   fullness). Set to `false` writes `lastSystemFillThreshold = 1` (never justify).
+     *
      * | Justification Disabled                                       | Justification Enabled                                |
      * |--------------------------------------------------------------|-------------------------------------------------------|
      * | ![Disabled](https://alphatab.net/img/reference/property/justify-last-system-false.png) | ![Enabled](https://alphatab.net/img/reference/property/justify-last-system-true.png) |
+     *
      * @since 1.3.0
      * @category Display
      * @defaultValue `false`
+     * @json_read_only
      */
-    justifyLastSystem: boolean;
+    get justifyLastSystem(): boolean;
+    set justifyLastSystem(value: boolean);
     /**
      * Allows adjusting of the used fonts and colors for rendering.
      * @json_partial_names
@@ -6628,6 +6718,13 @@ export declare class DisplaySettings {
      */
     accoladeBarPaddingRight: number;
     /**
+     * The padding between inline tuning labels and the start of the tab staff.
+     * @since 1.9.0
+     * @category Display
+     * @defaultValue `5`
+     */
+    inlineTuningPaddingRight: number;
+    /**
      * The top padding applied to the first main notation staff (standard, tabs, numbered, slash).
      * @since 1.8.0
      * @category Display
@@ -6688,10 +6785,14 @@ export declare class DisplaySettings {
      */
     staffPaddingLeft: number;
     /**
-     * The padding between individual effect bands.
+     * Clearance applied around each effect band on its staff-facing side:
+     * "bottom padding" for top bands (between the band and the staff or
+     * the band stacked below it) and "top padding" for bottom bands
+     * (mirrored). Also used as the inter-band gap when bands stack on
+     * the same side.
      * @since 1.7.0
      * @category Display
-     * @defaultValue `2`
+     * @defaultValue `5`
      */
     effectBandPaddingBottom: number;
     /**
@@ -6760,9 +6861,16 @@ export declare class DisplaySettings {
      *
      * The page layout does not use `displayWidth`. The use of absolute widths would break the proper alignments needed for this kind of display.
      *
-     * Also note that the sizing is including any glyphs and notation elements within the bar. e.g. if there are clefs in the bar, they are still "squeezed" into the available size.
-     * It is not the case that the actual notes with their lengths are sized accordingly. This fits the sizing system of Guitar Pro and when files are customized there,
-     * alphaTab will match this layout quite close.
+     * In both modes, prefix and postfix glyphs (clef, key signature, time signature, barlines) are treated as fixed overhead: they keep their
+     * natural size and the remaining staff width is distributed across bars by a per-bar weight. This matches the convention used by
+     * Guitar Pro, Dorico, Finale, Sibelius and MuseScore. Bars that carry a system-start prefix or a mid-line clef/key/time-signature change
+     * are therefore visibly wider than plain bars with the same weight. The weight source depends on the mode:
+     *
+     * * `Automatic` (default for `page` layout): weights come from the built-in spacing engine (the natural content width of each bar).
+     *   `displayScale` on the model is ignored.
+     * * `UseModelLayout` (and the `parchment` layout): weights come from `bar.displayScale` / `masterBar.displayScale`. An unset
+     *   `displayScale` defaults to `1` and behaves identically to an explicit `1`, matching Guitar Pro (which omits the value when the
+     *   author hasn't customized it).
      *
      * ### Horizontal Layout
      *
@@ -6807,6 +6915,34 @@ declare interface DisplaySettingsJson {
      * | ![Default](https://alphatab.net/img/reference/property/stretchforce-default.png) | ![0.5](https://alphatab.net/img/reference/property/stretchforce-half.png) |
      */
     stretchForce?: number;
+    /**
+     * The proportional spacing ratio between successive note durations.
+     * @since 1.9.0
+     * @category Display
+     * @defaultValue `Math.SQRT2` (≈ 1.414, matches Dorico's default)
+     * @remarks
+     * Controls the *shape* of the horizontal spacing curve - how much wider a note of duration `2d` is rendered relative to a note of duration `d`.
+     * AlphaTab uses a power-law spacing model (the same approach used by Dorico, MuseScore and Finale): doubling the note duration multiplies its
+     * allocated horizontal space by `spacingRatio`.
+     *
+     * Reference values for cross-application comparison:
+     *
+     * | Application / Style        | Ratio                | Character                          |
+     * |----------------------------|----------------------|------------------------------------|
+     * | Dorico default             | √2 ≈ 1.414           | Tight, efficient, orchestral       |
+     * | MuseScore default          | 1.5                  | Balanced, general-purpose          |
+     * | Finale default (Fibonacci) | φ ≈ 1.618            | Loose, traditional engraving       |
+     *
+     * AlphaTab defaults to `√2` (Dorico's value). This produces tighter spacing at long
+     * durations than the alternatives, which matters for guitar tablature where rest bars and
+     * whole notes are common - looser ratios make those bars dominate system width.
+     *
+     * This setting is orthogonal to {@link stretchForce}: `spacingRatio` controls the *shape* of the spacing (proportions between durations),
+     * `stretchForce` controls the overall *density* (how tightly or loosely the music is packed). Both can be adjusted independently.
+     *
+     * Values are clamped to the range `[1.2, 2.0]`. A value of `1.0` would produce equal spacing for all durations and is rejected.
+     */
+    spacingRatio?: number;
     /**
      * The layouting mode used to arrange the the notation.
      * @remarks
@@ -6873,16 +7009,56 @@ declare interface DisplaySettingsJson {
      */
     barCountPerPartial?: number;
     /**
-     * Whether to justify also the last system in page layouts.
+     * The minimum fullness ratio at which the last system in a flow is justified to fill the
+     * available staff width.
+     * @since 1.9.0
+     * @category Display
+     * @defaultValue `1`
      * @remarks
-     * Setting this option to `true` tells alphaTab to also justify the last system (row) like it
-     * already does for the systems which are full.
+     * The "fullness" of a system is its natural unjustified width divided by the available
+     * staff width. The last system is stretched to full width only when its fullness is
+     * **greater than or equal to** this threshold; otherwise it renders at its natural width.
+     *
+     * Following industry convention (Dorico, MuseScore), a sparsely populated final system
+     * looks better compact than spread across the full page. The threshold lets users tune
+     * where that boundary sits.
+     *
+     * Common values:
+     *
+     * - `1` (default) — never justify the last system. Equivalent to the legacy
+     *   `justifyLastSystem = false` behaviour.
+     * - `0` — always justify the last system, even when sparse. Equivalent to the legacy
+     *   `justifyLastSystem = true` behaviour.
+     * - `0.4`–`0.7` — Dorico/MuseScore-style: justify when the last system is reasonably full,
+     *   leave compact when only a few bars trail.
+     *
+     * The threshold is bypassed when the last system is naturally wider than the available
+     * staff width - in that case the system still compresses to fit, since otherwise content
+     * would overflow horizontally.
+     *
+     * Values outside `[0, 1]` are clamped.
+     */
+    lastSystemFillThreshold?: number;
+    /**
+     * Whether to justify also the last system in page layouts.
+     *
+     * @remarks
+     * @deprecated Use {@link lastSystemFillThreshold} for fine-grained control over when the
+     * last system is justified. This property is now a thin wrapper:
+     *
+     * - **Get** returns `true` when {@link lastSystemFillThreshold} is less than `1` (i.e. some
+     *   degree of last-system justification is enabled), `false` otherwise.
+     * - **Set** to `true` writes `lastSystemFillThreshold = 0` (always justify regardless of
+     *   fullness). Set to `false` writes `lastSystemFillThreshold = 1` (never justify).
+     *
      * | Justification Disabled                                       | Justification Enabled                                |
      * |--------------------------------------------------------------|-------------------------------------------------------|
      * | ![Disabled](https://alphatab.net/img/reference/property/justify-last-system-false.png) | ![Enabled](https://alphatab.net/img/reference/property/justify-last-system-true.png) |
+     *
      * @since 1.3.0
      * @category Display
      * @defaultValue `false`
+     * @json_read_only
      */
     justifyLastSystem?: boolean;
     /**
@@ -6987,6 +7163,13 @@ declare interface DisplaySettingsJson {
      */
     accoladeBarPaddingRight?: number;
     /**
+     * The padding between inline tuning labels and the start of the tab staff.
+     * @since 1.9.0
+     * @category Display
+     * @defaultValue `5`
+     */
+    inlineTuningPaddingRight?: number;
+    /**
      * The top padding applied to the first main notation staff (standard, tabs, numbered, slash).
      * @since 1.8.0
      * @category Display
@@ -7047,10 +7230,14 @@ declare interface DisplaySettingsJson {
      */
     staffPaddingLeft?: number;
     /**
-     * The padding between individual effect bands.
+     * Clearance applied around each effect band on its staff-facing side:
+     * "bottom padding" for top bands (between the band and the staff or
+     * the band stacked below it) and "top padding" for bottom bands
+     * (mirrored). Also used as the inter-band gap when bands stack on
+     * the same side.
      * @since 1.7.0
      * @category Display
-     * @defaultValue `2`
+     * @defaultValue `5`
      */
     effectBandPaddingBottom?: number;
     /**
@@ -7119,9 +7306,16 @@ declare interface DisplaySettingsJson {
      *
      * The page layout does not use `displayWidth`. The use of absolute widths would break the proper alignments needed for this kind of display.
      *
-     * Also note that the sizing is including any glyphs and notation elements within the bar. e.g. if there are clefs in the bar, they are still "squeezed" into the available size.
-     * It is not the case that the actual notes with their lengths are sized accordingly. This fits the sizing system of Guitar Pro and when files are customized there,
-     * alphaTab will match this layout quite close.
+     * In both modes, prefix and postfix glyphs (clef, key signature, time signature, barlines) are treated as fixed overhead: they keep their
+     * natural size and the remaining staff width is distributed across bars by a per-bar weight. This matches the convention used by
+     * Guitar Pro, Dorico, Finale, Sibelius and MuseScore. Bars that carry a system-start prefix or a mid-line clef/key/time-signature change
+     * are therefore visibly wider than plain bars with the same weight. The weight source depends on the mode:
+     *
+     * * `Automatic` (default for `page` layout): weights come from the built-in spacing engine (the natural content width of each bar).
+     *   `displayScale` on the model is ignored.
+     * * `UseModelLayout` (and the `parchment` layout): weights come from `bar.displayScale` / `masterBar.displayScale`. An unset
+     *   `displayScale` defaults to `1` and behaves identically to an explicit `1`, matching Guitar Pro (which omits the value when the
+     *   author hasn't customized it).
      *
      * ### Horizontal Layout
      *
@@ -7279,6 +7473,34 @@ declare enum DynamicValue {
 }
 
 /**
+ * Per-axis visibility / placement / system-display selector for an
+ * element on a staff type. Used as the value type for the clef,
+ * key signature, time signature, and rests entries on the per-staff-type
+ * configuration carriers.
+ *
+ * Each axis is independently optional. An `undefined` axis defers to
+ * the outer layer in the three-layer resolution chain (per-bar →
+ * per-staff → score-wide stylesheet).
+ * @record
+ * @json
+ * @public
+ */
+declare interface ElementDisplay {
+    /**
+     * Whether to paint the element at all.
+     */
+    isVisible?: boolean;
+    /**
+     * Spatial selector across the staves of a system.
+     */
+    staffPlacement?: StaffPlacement;
+    /**
+     * Temporal selector across the systems of the score.
+     */
+    systemDisplay?: SystemDisplay;
+}
+
+/**
  * Defines the custom styles for an element in the music sheet (like bars, voices, notes etc).
  * @public
  */
@@ -7289,6 +7511,14 @@ declare class ElementStyle<TSubElements extends number> {
      * even if some "higher level" element changes colors.
      */
     colors: Map<TSubElements, Color | null>;
+}
+
+/**
+ * Thrown whenever we hit the end of input data unexpectedly.
+ * @public
+ */
+declare class EndOfReaderError extends AlphaTabError {
+    constructor();
 }
 
 /**
@@ -7325,7 +7555,6 @@ declare class EndOfTrackEvent extends MidiEvent {
  */
 export declare class EngravingSettings {
     private static _bravuraDefaults?;
-
     /**
      * A {@link EngravingSettings} copy filled with the settings of the Bravura font used by default in alphaTab.
      */
@@ -7505,14 +7734,12 @@ export declare class EngravingSettings {
      * @smufl 1.4
      */
     glyphHeights: Map<MusicFontSymbol, number>;
-
     /**
      * Fills the engraving settings from the provided smufl metdata.
      * @param smufl The metadata shipped together with the SMuFL fonts.
      * @param musicFontSize The font size to configure in alphaTab for the music font.
      */
     fillFromSmufl(smufl: SmuflMetadata, musicFontSize?: number): void;
-
     private static _smuflNameToMusicFontSymbol;
     /**
      * The size of the bars drawn in numbered notation to indicate the durations.
@@ -7708,6 +7935,29 @@ export declare class EngravingSettings {
      * in case of multi-voice note head overlaps.
      */
     multiVoiceDisplacedNoteHeadSpacing: number;
+    /**
+     * The minimum vertical padding between the content of two adjacent staves
+     * (e.g. a stem below one staff and a fret number above the next one).
+     * Additional space is only added between staves where their content would come closer than this.
+     * @remarks
+     * Behind Bars: characters should not be closer than 1/2 stave-space and never collide.
+     */
+    staffContentPadding: number;
+    /**
+     * The minimum horizontal padding between the content of two adjacent beats
+     * (e.g. a notehead and the accidental or grace notes of the following beat).
+     * Additional space is only added between beats where their content would come closer than this.
+     * @remarks
+     * Behind Bars: where space is limited, characters should not be closer than 1/2 stave-space and never collide.
+     */
+    beatContentPadding: number;
+    /**
+     * The minimum horizontal padding between the content of the last beat in a bar and the bar line.
+     * Additional space is only added where the content would come closer than this.
+     * @remarks
+     * Behind Bars: stems must never come closer to a barline than one stave-space.
+     */
+    barlineContentPadding: number;
     /**
      * Calculates the stem height for a note of the given duration.
      * @param duration The duration to calculate the height respecting flag sizes.
@@ -8117,6 +8367,29 @@ declare interface EngravingSettingsJson {
      */
     multiVoiceDisplacedNoteHeadSpacing?: number;
     /**
+     * The minimum vertical padding between the content of two adjacent staves
+     * (e.g. a stem below one staff and a fret number above the next one).
+     * Additional space is only added between staves where their content would come closer than this.
+     * @remarks
+     * Behind Bars: characters should not be closer than 1/2 stave-space and never collide.
+     */
+    staffContentPadding?: number;
+    /**
+     * The minimum horizontal padding between the content of two adjacent beats
+     * (e.g. a notehead and the accidental or grace notes of the following beat).
+     * Additional space is only added between beats where their content would come closer than this.
+     * @remarks
+     * Behind Bars: where space is limited, characters should not be closer than 1/2 stave-space and never collide.
+     */
+    beatContentPadding?: number;
+    /**
+     * The minimum horizontal padding between the content of the last beat in a bar and the bar line.
+     * Additional space is only added where the content would come closer than this.
+     * @remarks
+     * Behind Bars: stems must never come closer to a barline than one stave-space.
+     */
+    barlineContentPadding?: number;
+    /**
      * The space needed by flags on the stem-side from top to bottom to place.
      */
     stemFlagHeight?: Map<Duration | keyof typeof Duration | Lowercase<keyof typeof Duration>, number>;
@@ -8174,12 +8447,10 @@ declare interface EngravingStemInfoJson {
  * @public
  */
 export declare class Environment {
-
     /**
      * @target web
      */
     private static _globalThis;
-
     /**
      * @target web
      */
@@ -8208,18 +8479,10 @@ export declare class Environment {
      * @target web
      */
     static get isRunningInAudioWorklet(): boolean;
-
-
-    /**
-     * @target web
-     * @partial
-     */
-    static throttle(action: () => void, delay: number): () => void;
     /**
      * @target web
      */
     private static _detectScriptFile;
-
     private static _appendScriptName;
     /**
      * @target web
@@ -8230,10 +8493,7 @@ export declare class Environment {
      */
     private static _registerJQueryPlugin;
     static readonly renderEngines: Map<string, RenderEngineFactory>;
-
-
     static getRenderEngineFactory(engine: string): RenderEngineFactory;
-
     /**
      * Gets all default ScoreImporters
      * @returns
@@ -8257,15 +8517,12 @@ export declare class Environment {
      * @partial
      */
     private static _createPlatformSpecificRenderEngines;
-
     private static _createDefaultStaveProfiles;
     private static _createDefaultLayoutEngines;
     /**
      * @target web
      */
-    static initializeMain(createWebWorker: (settings: Settings) => Worker, createAudioWorklet: (context: AudioContext, settings: Settings) => Promise<void>): void;
-
-
+    static initializeMain(createWebWorker: (settings: Settings, nameHint: string) => Worker, createAudioWorklet: (context: AudioContext, settings: Settings) => Promise<void>): void;
     /**
      * @target web
      */
@@ -8296,9 +8553,6 @@ export declare class Environment {
      * @partial
      */
     private static _printPlatformInfo;
-
-
-
 }
 
 export declare namespace exporter {
@@ -8700,6 +8954,7 @@ declare enum GolpeType {
 declare class Gp7Exporter extends ScoreExporter {
     get name(): string;
     writeScore(score: Score): void;
+    private static _cloneScore;
 }
 
 /**
@@ -9142,6 +9397,12 @@ declare interface IAlphaTexNoteValueNode extends IAlphaTexAstNode {
 }
 
 /**
+ * @public
+ */
+declare interface IAlphaTexStringSeparatorNode extends IAlphaTexAstNode {
+}
+
+/**
  * A {@link IBackingTrackSynthOutput} which uses a HTMLAudioElement as playback mechanism.
  * Allows the access to the element for further custom usage.
  * @target web
@@ -9172,6 +9433,7 @@ declare interface IAudioExporter extends Disposable {
      * slightly longer audio is contained in the result.
      *
      * When the song ends, the chunk might contain less than the requested duration.
+     * @async
      */
     render(milliseconds: number): Promise<AudioExportChunk | undefined>;
     destroy(): void;
@@ -9190,6 +9452,7 @@ declare interface IAudioExporterWorker extends IAudioExporter {
      * @param midi The midi file to load
      * @param syncPoints The sync points of the song (if any)
      * @param transpositionPitches The initial transposition pitches for the midi file.
+     * @async
      */
     initialize(options: AudioExportOptions, midi: MidiFile, syncPoints: BackingTrackSyncPoint[], transpositionPitches: Map<number, number>): Promise<void>;
 }
@@ -9349,7 +9612,7 @@ declare interface IContainer {
  *
  * @public
  */
-declare interface ICursorHandler {
+export declare interface ICursorHandler {
     /**
      * Called when this handler activates. This can be on dynamic cursor creation
      * or when setting a custom handler with cursors already created.
@@ -9581,6 +9844,16 @@ declare interface IMidiFileHandler {
      * This shift is applied in case grace beats
      */
     addTickShift(tickShift: number): void;
+    /**
+     * Adds a metronome click to the generated midi file.
+     * @param tick The midi ticks when the click should be happening.
+     * @param counter The index of the beat within the bar as per time signature (0 = first beat of the bar).
+     * @param durationInTicks The duration of one metronome beat in midi ticks.
+     * @remarks
+     * The clicks are generated bar by bar respecting repeats, the time signature and pick-up bars. Handlers
+     * which do not need a metronome (e.g. when writing standard midi files) can ignore this call.
+     */
+    addMetronome(tick: number, counter: number, durationInTicks: number): void;
 }
 
 /**
@@ -9640,10 +9913,20 @@ export declare class ImporterSettings {
      *
      * * Guitar Pro 7
      * * Guitar Pro 6
-     * * Guitar Pro 3-5
      * * MusicXML
      */
     encoding: string;
+    /**
+     * The text encoding to use when decoding strings within GuitarPro3-5 files.
+     * @since 1.9.0
+     * @defaultValue `windows-1252`
+     * @category Importer
+     * @remarks
+     * Guitar Pro 3-5 encode strings as system specific ANSI encoding, typically Windows-1252 in western system cultures.
+     * This is different to the other typically used utf-8 encoding.
+     * Via this setting the Guitar Pro 3-5 specific decoding can be used.
+     */
+    gp3To5encoding: string;
     /**
      * If part-groups should be merged into a single track (MusicXML).
      * @since 0.9.6
@@ -9684,6 +9967,17 @@ export declare class ImporterSettings {
      * ![Disabled](https://alphatab.net/img/reference/property/beattextaslyrics-disabled.png)
      */
     beatTextAsLyrics: boolean;
+    /**
+     * This setting controls the escape hatch for handling potentially malicous or corrupt
+     * input files. At selected spots in the codebase, we use this buffer size as maximum
+     * allowed sizes. e.g. during unzipping or decoding strings.
+     * This prevents resource exhaustion, especially when alphaTab is used on server side.
+     * Increase this buffer size if you need to handle very big files.
+     * @defaultValue `128000000`
+     * @category Core
+     * @since 1.9.0
+     */
+    maxDecodingBufferSize: number;
 }
 
 /**
@@ -9706,10 +10000,20 @@ declare interface ImporterSettingsJson {
      *
      * * Guitar Pro 7
      * * Guitar Pro 6
-     * * Guitar Pro 3-5
      * * MusicXML
      */
     encoding?: string;
+    /**
+     * The text encoding to use when decoding strings within GuitarPro3-5 files.
+     * @since 1.9.0
+     * @defaultValue `windows-1252`
+     * @category Importer
+     * @remarks
+     * Guitar Pro 3-5 encode strings as system specific ANSI encoding, typically Windows-1252 in western system cultures.
+     * This is different to the other typically used utf-8 encoding.
+     * Via this setting the Guitar Pro 3-5 specific decoding can be used.
+     */
+    gp3To5encoding?: string;
     /**
      * If part-groups should be merged into a single track (MusicXML).
      * @since 0.9.6
@@ -9750,6 +10054,17 @@ declare interface ImporterSettingsJson {
      * ![Disabled](https://alphatab.net/img/reference/property/beattextaslyrics-disabled.png)
      */
     beatTextAsLyrics?: boolean;
+    /**
+     * This setting controls the escape hatch for handling potentially malicous or corrupt
+     * input files. At selected spots in the codebase, we use this buffer size as maximum
+     * allowed sizes. e.g. during unzipping or decoding strings.
+     * This prevents resource exhaustion, especially when alphaTab is used on server side.
+     * Increase this buffer size if you need to handle very big files.
+     * @defaultValue `128000000`
+     * @category Core
+     * @since 1.9.0
+     */
+    maxDecodingBufferSize?: number;
 }
 
 /**
@@ -9807,7 +10122,6 @@ declare class InstrumentArticulation {
      */
     outputMidiNumber: number;
     constructor(elementType?: string, staffLine?: number, outputMidiNumber?: number, noteHeadDefault?: MusicFontSymbol, noteHeadHalf?: MusicFontSymbol, noteHeadWhole?: MusicFontSymbol, techniqueSymbol?: MusicFontSymbol, techniqueSymbolPlacement?: TechniqueSymbolPlacement, id?: number);
-
     getSymbol(duration: Duration): MusicFontSymbol;
 }
 
@@ -9815,6 +10129,8 @@ export declare namespace io {
     export {
         IWriteable,
         IReadable,
+        OverflowError,
+        EndOfReaderError,
         ByteBuffer,
         IOHelper
     }
@@ -10280,6 +10596,18 @@ declare interface IUiFacade<TSettings> {
      */
     beginInvoke(action: () => void): void;
     /**
+     * Creates a throttled/debounced version of the provided action.
+     * @param action The action to call.
+     * @param delay The delay to wait for additional call before actually executing.
+     * @returns A function which executes the provided action after the given delay.
+     * If multiple calls are made before the action is started, the already scheduled
+     * action is cancelled and a new one is scheduled after the given delay.
+     * If called endlessly, the action is never executed.
+     *
+     * Already executing actions will not be cancelled but will complete before another action executes.
+     */
+    throttle(action: () => void, delay: number): () => void;
+    /**
      * Tells the UI layer to remove all highlights from highlighted music notation elements.
      */
     removeHighlights(): void;
@@ -10433,7 +10761,7 @@ declare class JsonConverter {
      * @param score The score object to serialize
      * @returns A serialized score object without ciruclar dependencies that can be used for further serializations.
      */
-    static scoreToJsObject(score: Score): unknown;
+    static scoreToJsObject(score: Score): Map<string, unknown> | null;
     /**
      * Converts the given JavaScript object into a score object.
      * @param jsObject The javascript object created via {@link Score}
@@ -10731,6 +11059,33 @@ declare class MasterBar {
      */
     index: number;
     /**
+     * A custom string to display for the bar number as override.
+     * Even with a custom string, this masterbar contributes to the incremental bar numbers
+     * across the score. Set the {@link customBarNumber} for the next master bar if you want
+     * alternative counting.
+     */
+    customBarNumberText?: string;
+    /**
+     * A custom bar number affecting this and subsequent bar numbers.
+     * e.g. allows setting the initial bar number to 10 and the second will be 11.
+     * Any change to {@link customBarNumber} requires an additional call to {@link Score.finish}
+     * to consolidate the counting.
+     */
+    customBarNumber?: number;
+    /**
+     * The actual bar number of this masterbar respecting any Pick-Up bars and manually overriden bar numbers.
+     * Returns NaN for pick-up bars (see {@link isAnacrusis}) Only available after data model finish.
+     * The final bar number is not guaranteed to be unique. using {@see customBarNumber}
+     * users might reset or change counting in any custom fashion. Do not rely on the bar number
+     * for lookup or indexing.
+     */
+    get barNumber(): number;
+    /**
+     * Returns the actual text displayed for this master bar respecting any custom overrides and
+     * out-of-order numbers. Only available after data model finish.
+     */
+    get barNumberText(): string;
+    /**
      * Whether the masterbar is has any changes applied to it (e.g. tempo changes, time signature changes etc)
      * The first bar is always considered changed due to initial setup of values. It does not consider
      * elements like whether the tempo really changes to the previous bar.
@@ -10739,6 +11094,7 @@ declare class MasterBar {
     /**
      * The key signature used on all bars.
      * @deprecated Use key signatures on bar level
+     * @json_read_only
      */
     get keySignature(): KeySignature;
     /**
@@ -10749,6 +11105,7 @@ declare class MasterBar {
     /**
      * The type of key signature (major/minor)
      * @deprecated Use key signatures on bar level
+     * @json_read_only
      */
     get keySignatureType(): KeySignatureType;
     /**
@@ -10791,7 +11148,6 @@ declare class MasterBar {
      * Defines the custom beaming rules which should be applied to this bar and all bars following.
      */
     beamingRules?: BeamingRules;
-
     /**
      * Gets or sets whether the bar indicates a free time playing.
      */
@@ -11357,7 +11713,6 @@ declare class MidiFileGenerator {
      * @returns The generated sync points for usage in the backing track playback.
      */
     static generateSyncPoints(score: Score, createNew?: boolean): BackingTrackSyncPoint[];
-
     private static _playThroughSong;
     private static _processBarTime;
     private static _processBarTimeWithNewSyncPoints;
@@ -11365,6 +11720,7 @@ declare class MidiFileGenerator {
     private static _processBarTimeNoSyncPoints;
     private static _toChannelShort;
     private _generateMasterBar;
+    private _generateMetronome;
     private _generateBar;
     private _getPlaybackBar;
     private _generateVoice;
@@ -11476,7 +11832,6 @@ declare class MidiFileGenerator {
  */
 declare class MidiTickLookup {
     private _currentMasterBar;
-
     /**
      * A list of all {@link MasterBarTickLookup} sorted by time.
      */
@@ -11546,6 +11901,12 @@ declare class MidiTickLookup {
      * @returns The time in midi ticks at which the beat is played the first time or 0 if the beat is not contained
      */
     getBeatStart(beat: Beat): number;
+    /**
+     * Gets the playback range in midi ticks for a given beat.
+     * @param beat The beat to find the time period for.
+     * @returns The relative playback range within the parent masterbar at which the beat start and ends playing
+     */
+    getRelativeBeatPlaybackRange(beat: Beat): PlaybackRange | undefined;
     /**
      * Adds a new {@link MasterBarTickLookup} to the lookup table.
      * @param masterBar The item to add.
@@ -11704,6 +12065,7 @@ export declare namespace model {
         TrackNamePolicy,
         TrackNameMode,
         TrackNameOrientation,
+        TuningDisplayMode,
         BarNumberDisplay,
         RepeatGroup,
         Score,
@@ -11728,7 +12090,18 @@ export declare namespace model {
         WahPedal,
         WhammyType,
         ElementStyle,
-        BackingTrack
+        BackingTrack,
+        StaffPlacement,
+        SystemDisplay,
+        ElementDisplay,
+        ScoreStaffConfig,
+        TabStaffConfig,
+        SlashStaffConfig,
+        NumberedStaffConfig,
+        ScoreBarOverride,
+        TabBarOverride,
+        SlashBarOverride,
+        NumberedBarOverride
     }
 }
 
@@ -12263,7 +12636,15 @@ export declare enum NotationElement {
     /**
      * The slurs shown on bend effects within the score staff.
      */
-    ScoreBendSlur = 55
+    ScoreBendSlur = 55,
+    /**
+     * The hammer-on pull-off text shown on slurs.
+     */
+    EffectHammerOnPullOffText = 56,
+    /**
+     * The slide text shown on slurs.
+     */
+    EffectSlideText = 57
 }
 
 /**
@@ -12730,8 +13111,6 @@ declare interface NotationSettingsJson {
  * @public
  */
 declare class Note {
-
-
     /**
      * Gets or sets the unique id of this note.
      * @clone_ignore
@@ -12787,10 +13166,13 @@ declare class Note {
      * Gets or sets the string number where the note is placed.
      * 1 is the lowest string on the guitar and the bottom line on the tablature.
      * It then increases the the number of strings on available on the track.
+     * On pitched notes (no fret) the string is only an annotation shown via {@link showStringNumber}
+     * and has no effect on playback. Staves without tuning assume a standard 6 string instrument for this case.
      */
     string: number;
     /**
      * Gets or sets whether the string number for this note should be shown.
+     * For pitched notes this requires {@link string} to be set.
      */
     showStringNumber: boolean;
     get isPiano(): boolean;
@@ -13109,6 +13491,10 @@ declare class Note {
     style?: NoteStyle;
     get stringTuning(): number;
     static getStringTuning(staff: Staff, noteString: number): number;
+    /**
+     * The number of strings assumed for string number annotations on staves without tuning.
+     */
+    private static readonly _defaultAnnotationStringCount;
     get realValue(): number;
     get realValueWithoutHarmonic(): number;
     /**
@@ -13132,8 +13518,6 @@ declare class Note {
     private static _noteIdLookupKey;
     private _noteIdBag;
     chain(sharedDataBag?: Map<string, unknown> | null): void;
-
-
 }
 
 /**
@@ -13341,6 +13725,30 @@ declare enum NoteSubElement {
 }
 
 /**
+ * Per-bar override for the numbered (jianpu) staff's display.
+ * @record
+ * @json
+ * @public
+ */
+declare interface NumberedBarOverride {
+    timeSignature?: ElementDisplay;
+    barNumber?: BarNumberDisplay;
+}
+
+/**
+ * Per-staff-type display configuration for the numbered (jianpu) staff.
+ * The "1=X" key designation is rendered as an above-staff effect-band
+ * label, not a header glyph, so this config has no `keySignature` field.
+ * @record
+ * @json
+ * @public
+ */
+declare interface NumberedStaffConfig {
+    timeSignature?: ElementDisplay;
+    barNumber?: BarNumberDisplay;
+}
+
+/**
  * Lists all ottavia.
  * @public
  */
@@ -13365,6 +13773,14 @@ declare enum Ottavia {
      * 2 octaves lower.
      */
     _15mb = 4
+}
+
+/**
+ * Thrown whenever an overflow in data or buffer sizes is detected.
+ * @public
+ */
+declare class OverflowError extends AlphaTabError {
+    constructor(message: string);
 }
 
 /**
@@ -13692,11 +14108,39 @@ export declare class PlayerSettings {
      * @since 0.9.7
      * @defaultValue `true`
      * @category Player
+     * @json_read_only
      * @remarks
      * This setting configures whether alphaTab provides the default user interaction features like selection of the playback range and "seek on click".
      * By default users can select the desired playback range with the mouse and also jump to individual beats by click. This behavior can be contolled with this setting.
+     * @deprecated Use {@link enableSeekToClick} and {@link enablePlaybackRangeSelection} individually
      */
-    enableUserInteraction: boolean;
+    get enableUserInteraction(): boolean;
+    /**
+     * @deprecated Use {@link enableSeekToClick} and {@link enablePlaybackRangeSelection} individually
+     */
+    set enableUserInteraction(value: boolean);
+    /**
+     * Whether the a click on the music sheet triggers a player seek to the note/beat at the
+     * clicked location.
+     * @since 1.9.0
+     * @defaultValue `true`
+     * @category Player
+     */
+    enableSeekToClick: boolean;
+    /**
+     * Whether user click and drag results in a selection defining the playback range.
+     * @since 1.9.0
+     * @defaultValue `true`
+     * @category Player
+     */
+    enablePlaybackRangeSelection: boolean;
+    /**
+     * Whether a simple click (no range drag) should reset the current playback range.
+     * @since 1.9.0
+     * @defaultValue `true`
+     * @category Player
+     */
+    resetPlaybackRangeOnClick: boolean;
     /**
      * The X-offset to add when scrolling.
      * @since 0.9.6
@@ -13964,11 +14408,35 @@ declare interface PlayerSettingsJson {
      * @since 0.9.7
      * @defaultValue `true`
      * @category Player
+     * @json_read_only
      * @remarks
      * This setting configures whether alphaTab provides the default user interaction features like selection of the playback range and "seek on click".
      * By default users can select the desired playback range with the mouse and also jump to individual beats by click. This behavior can be contolled with this setting.
+     * @deprecated Use {@link enableSeekToClick} and {@link enablePlaybackRangeSelection} individually
      */
     enableUserInteraction?: boolean;
+    /**
+     * Whether the a click on the music sheet triggers a player seek to the note/beat at the
+     * clicked location.
+     * @since 1.9.0
+     * @defaultValue `true`
+     * @category Player
+     */
+    enableSeekToClick?: boolean;
+    /**
+     * Whether user click and drag results in a selection defining the playback range.
+     * @since 1.9.0
+     * @defaultValue `true`
+     * @category Player
+     */
+    enablePlaybackRangeSelection?: boolean;
+    /**
+     * Whether a simple click (no range drag) should reset the current playback range.
+     * @since 1.9.0
+     * @defaultValue `true`
+     * @category Player
+     */
+    resetPlaybackRangeOnClick?: boolean;
     /**
      * The X-offset to add when scrolling.
      * @since 0.9.6
@@ -14350,6 +14818,13 @@ declare interface RenderHints {
      * internally it might still be decided to clear the viewport.
      */
     reuseViewport?: boolean;
+    /**
+     * Indicates the index of the first masterbar which was modified in the data model.
+     * @remarks
+     * AlphaTab will try to optimize the rendering and other updates to keep unchanged parts.
+     * At this point only the rendering is affected and the generated MIDI has to be updated separately.
+     */
+    firstChangedMasterBar?: number;
 }
 
 export declare namespace rendering {
@@ -14383,7 +14858,6 @@ export declare class RenderingResources {
      * The default fonts for notation elements if not specified by the user.
      */
     static defaultFonts: Map<NotationElement, Font>;
-
     /**
      * The SMuFL Metrics to use for rendering music symbols.
      * @defaultValue `alphaTab`
@@ -14395,6 +14869,7 @@ export declare class RenderingResources {
      * @defaultValue `bold 12px Arial, sans-serif`
      * @since 0.9.6
      * @deprecated use {@link elementFonts} with {@link NotationElement.ScoreCopyright}
+     * @json_read_only
      */
     get copyrightFont(): Font;
     /**
@@ -14406,6 +14881,7 @@ export declare class RenderingResources {
      * @defaultValue `32px Georgia, serif`
      * @since 0.9.6
      * @deprecated use {@link elementFonts} with {@link NotationElement.ScoreTitle}
+     * @json_read_only
      */
     get titleFont(): Font;
     /**
@@ -14417,6 +14893,7 @@ export declare class RenderingResources {
      * @defaultValue `20px Georgia, serif`
      * @since 0.9.6
      * @deprecated use {@link elementFonts} with {@link NotationElement.ScoreSubTitle}
+     * @json_read_only
      */
     get subTitleFont(): Font;
     /**
@@ -14428,6 +14905,7 @@ export declare class RenderingResources {
      * @defaultValue `15px Arial, sans-serif`
      * @since 0.9.6
      * @deprecated use {@link elementFonts} with {@link NotationElement.ScoreWords}
+     * @json_read_only
      */
     get wordsFont(): Font;
     /**
@@ -14439,6 +14917,7 @@ export declare class RenderingResources {
      * @defaultValue `12px Georgia, serif`
      * @since 1.4.0
      * @deprecated use {@link elementFonts} with {@link NotationElement.EffectBeatTimer}
+     * @json_read_only
      */
     get timerFont(): Font;
     /**
@@ -14450,6 +14929,7 @@ export declare class RenderingResources {
      * @defaultValue `14px Georgia, serif`
      * @since 1.4.0
      * @deprecated use {@link elementFonts} with {@link NotationElement.EffectDirections}
+     * @json_read_only
      */
     get directionsFont(): Font;
     /**
@@ -14461,6 +14941,7 @@ export declare class RenderingResources {
      * @defaultValue `11px Arial, sans-serif`
      * @since 0.9.6
      * @deprecated use {@link elementFonts} with {@link NotationElement.ChordDiagramFretboardNumbers}
+     * @json_read_only
      */
     get fretboardNumberFont(): Font;
     /**
@@ -14488,6 +14969,7 @@ export declare class RenderingResources {
      * @defaultValue `bold 14px Georgia, serif`
      * @since 0.9.6
      * @deprecated use {@link elementFonts} with {@link NotationElement.EffectMarker}
+     * @json_read_only
      */
     get markerFont(): Font;
     /**
@@ -14507,6 +14989,7 @@ export declare class RenderingResources {
      * @defaultValue `11px Arial, sans-serif`
      * @since 0.9.6
      * @deprecated use {@link elementFonts} with {@link NotationElement.BarNumber}
+     * @json_read_only
      */
     get barNumberFont(): Font;
     /**
@@ -14580,7 +15063,6 @@ export declare class RenderingResources {
      */
     scoreInfoColor: Color;
     constructor();
-
 }
 
 /**
@@ -14591,7 +15073,6 @@ export declare class RenderingResources {
  * @target web
  */
 declare interface RenderingResourcesJson {
-
     /**
      * The SMuFL Metrics to use for rendering music symbols.
      * @defaultValue `alphaTab`
@@ -14599,29 +15080,77 @@ declare interface RenderingResourcesJson {
      */
     engravingSettings?: EngravingSettingsJson;
     /**
-     * Unused, see deprecation note.
-     * @defaultValue `14px Georgia, serif`
+     * The font to use for displaying the songs copyright information in the header of the music sheet.
+     * @defaultValue `bold 12px Arial, sans-serif`
      * @since 0.9.6
-     * @deprecated Since 1.7.0 alphaTab uses the glyphs contained in the SMuFL font
-     * @json_ignore
+     * @deprecated use {@link elementFonts} with {@link NotationElement.ScoreCopyright}
+     * @json_read_only
      */
-    fingeringFont?: FontJson;
+    copyrightFont?: FontJson;
     /**
-     * Unused, see deprecation note.
+     * The font to use for displaying the songs title in the header of the music sheet.
+     * @defaultValue `32px Georgia, serif`
+     * @since 0.9.6
+     * @deprecated use {@link elementFonts} with {@link NotationElement.ScoreTitle}
+     * @json_read_only
+     */
+    titleFont?: FontJson;
+    /**
+     * The font to use for displaying the songs subtitle in the header of the music sheet.
+     * @defaultValue `20px Georgia, serif`
+     * @since 0.9.6
+     * @deprecated use {@link elementFonts} with {@link NotationElement.ScoreSubTitle}
+     * @json_read_only
+     */
+    subTitleFont?: FontJson;
+    /**
+     * The font to use for displaying the lyrics information in the header of the music sheet.
+     * @defaultValue `15px Arial, sans-serif`
+     * @since 0.9.6
+     * @deprecated use {@link elementFonts} with {@link NotationElement.ScoreWords}
+     * @json_read_only
+     */
+    wordsFont?: FontJson;
+    /**
+     * The font to use for displaying beat time information in the music sheet.
      * @defaultValue `12px Georgia, serif`
      * @since 1.4.0
-     * @deprecated Since 1.7.0 alphaTab uses the glyphs contained in the SMuFL font
-     * @json_ignore
+     * @deprecated use {@link elementFonts} with {@link NotationElement.EffectBeatTimer}
+     * @json_read_only
      */
-    inlineFingeringFont?: FontJson;
+    timerFont?: FontJson;
     /**
-     * Ununsed, see deprecation note.
-     * @defaultValue `italic 12px Georgia, serif`
-     * @since 0.9.6
-     * @deprecated use {@link elementFonts} with the respective
-     * @json_ignore
+     * The font to use for displaying the directions texts.
+     * @defaultValue `14px Georgia, serif`
+     * @since 1.4.0
+     * @deprecated use {@link elementFonts} with {@link NotationElement.EffectDirections}
+     * @json_read_only
      */
-    effectFont?: FontJson;
+    directionsFont?: FontJson;
+    /**
+     * The font to use for displaying the fretboard numbers in chord diagrams.
+     * @defaultValue `11px Arial, sans-serif`
+     * @since 0.9.6
+     * @deprecated use {@link elementFonts} with {@link NotationElement.ChordDiagramFretboardNumbers}
+     * @json_read_only
+     */
+    fretboardNumberFont?: FontJson;
+    /**
+     * The font to use for section marker labels shown above the music sheet.
+     * @defaultValue `bold 14px Georgia, serif`
+     * @since 0.9.6
+     * @deprecated use {@link elementFonts} with {@link NotationElement.EffectMarker}
+     * @json_read_only
+     */
+    markerFont?: FontJson;
+    /**
+     * The font to use for displaying the bar numbers above the music sheet.
+     * @defaultValue `11px Arial, sans-serif`
+     * @since 0.9.6
+     * @deprecated use {@link elementFonts} with {@link NotationElement.BarNumber}
+     * @json_read_only
+     */
+    barNumberFont?: FontJson;
     /**
      * The fonts used by individual elements. Check `defaultFonts` for the elements which have custom fonts.
      * Removing fonts from this map can lead to unexpected side effects and errors. Only update it with new values.
@@ -14715,6 +15244,10 @@ declare class RenderStylesheet {
      */
     globalDisplayTuning: boolean;
     /**
+     * The place where tuning information is displayed.
+     */
+    tuningDisplayMode: TuningDisplayMode;
+    /**
      * Whether to show the tuning.(per-track)
      */
     perTrackDisplayTuning: Map<number, boolean> | null;
@@ -14784,9 +15317,30 @@ declare class RenderStylesheet {
      */
     showSingleStaffBrackets: boolean;
     /**
-     * How bar numbers should be displayed.
+     * How bar numbers should be displayed score-wide.
+     * @deprecated Use {@link scoreConfig}, {@link tabConfig},
+     * {@link slashConfig}, or {@link numberedConfig} `.barNumber` for
+     * per-staff-type control. The setter broadcasts to all four
+     * staff-type entries.
      */
-    barNumberDisplay: BarNumberDisplay;
+    get barNumberDisplay(): BarNumberDisplay;
+    set barNumberDisplay(value: BarNumberDisplay);
+    /**
+     * Score-wide display configuration for the standard-notation staff.
+     */
+    scoreConfig: ScoreStaffConfig;
+    /**
+     * Score-wide display configuration for the tablature staff.
+     */
+    tabConfig: TabStaffConfig;
+    /**
+     * Score-wide display configuration for the slash staff.
+     */
+    slashConfig: SlashStaffConfig;
+    /**
+     * Score-wide display configuration for the numbered (jianpu) staff.
+     */
+    numberedConfig: NumberedStaffConfig;
 }
 
 /**
@@ -14960,6 +15514,19 @@ declare class Score {
 }
 
 /**
+ * Per-bar override for the standard-notation staff's display.
+ * @record
+ * @json
+ * @public
+ */
+declare interface ScoreBarOverride {
+    clef?: ElementDisplay;
+    keySignature?: ElementDisplay;
+    timeSignature?: ElementDisplay;
+    barNumber?: BarNumberDisplay;
+}
+
+/**
  * This is the base class for creating new song exporters which
  * enable writing scores to a binary datasink.
  * @public
@@ -15049,7 +15616,6 @@ declare class ScoreRenderer implements IScoreRenderer {
     canvas: ICanvas | null;
     score: Score | null;
     tracks: Track[] | null;
-
     settings: Settings;
     boundsLookup: BoundsLookup | null;
     width: number;
@@ -15070,8 +15636,17 @@ declare class ScoreRenderer implements IScoreRenderer {
     updateSettings(settings: Settings): void;
     renderResult(resultId: string): void;
     render(renderHints?: RenderHints): void;
+    /**
+     * Renders within the 'render.total' profiling frame.
+     * The finished events are raised by the caller once all profiling frames are closed:
+     * listeners might start a new render right away (e.g. on another thread).
+     * @returns whether the rendering finished (and the finished events need to be raised).
+     */
+    private _renderProfiled;
+    private _render;
     resizeRender(): void;
     private _layoutAndRender;
+    private _notifyRenderFinished;
     readonly preRender: IEventEmitterOfT<boolean>;
     readonly renderFinished: IEventEmitterOfT<RenderFinishedEventArgs>;
     readonly partialRenderFinished: IEventEmitterOfT<RenderFinishedEventArgs>;
@@ -15079,6 +15654,19 @@ declare class ScoreRenderer implements IScoreRenderer {
     readonly postRenderFinished: IEventEmitter;
     readonly error: IEventEmitterOfT<Error>;
     private _onRenderFinished;
+}
+
+/**
+ * Per-staff-type display configuration for the standard-notation staff.
+ * @record
+ * @json
+ * @public
+ */
+declare interface ScoreStaffConfig {
+    clef?: ElementDisplay;
+    keySignature?: ElementDisplay;
+    timeSignature?: ElementDisplay;
+    barNumber?: BarNumberDisplay;
 }
 
 /**
@@ -15238,7 +15826,6 @@ export declare class Settings {
      * @target web
      */
     fillFromJson(json: SettingsJson): void;
-
 }
 
 /**
@@ -15307,6 +15894,30 @@ declare enum SimileMark {
      * bar of the 2 repeat bars.
      */
     SecondOfDouble = 3
+}
+
+/**
+ * Per-bar override for the slash staff's display.
+ * @record
+ * @json
+ * @public
+ */
+declare interface SlashBarOverride {
+    keySignature?: ElementDisplay;
+    timeSignature?: ElementDisplay;
+    barNumber?: BarNumberDisplay;
+}
+
+/**
+ * Per-staff-type display configuration for the slash staff.
+ * @record
+ * @json
+ * @public
+ */
+declare interface SlashStaffConfig {
+    keySignature?: ElementDisplay;
+    timeSignature?: ElementDisplay;
+    barNumber?: BarNumberDisplay;
 }
 
 /**
@@ -15589,6 +16200,22 @@ declare class Staff {
      */
     showStandardNotation: boolean;
     /**
+     * Per-{@link Staff} override for the standard-notation staff's display.
+     */
+    scoreConfig?: ScoreStaffConfig;
+    /**
+     * Per-{@link Staff} override for the tablature staff's display.
+     */
+    tabConfig?: TabStaffConfig;
+    /**
+     * Per-{@link Staff} override for the slash staff's display.
+     */
+    slashConfig?: SlashStaffConfig;
+    /**
+     * Per-{@link Staff} override for the numbered (jianpu) staff's display.
+     */
+    numberedConfig?: NumberedStaffConfig;
+    /**
      * Gets or sets whether the staff contains percussion notation
      */
     isPercussion: boolean;
@@ -15608,6 +16235,26 @@ declare class Staff {
     hasChord(chordId: string): boolean;
     getChord(chordId: string): Chord | null;
     addBar(bar: Bar): void;
+}
+
+/**
+ * Spatial selector for an element across the staves of a system.
+ *
+ * One axis of {@link ElementDisplay}. The renderer dispatches per-staff
+ * on this axis to decide which staves paint the element.
+ * @public
+ */
+declare enum StaffPlacement {
+    /**
+     * Paint the element on every staff whose
+     * {@link ElementDisplay.isVisible} resolves to `true`.
+     */
+    AllStaves = 0,
+    /**
+     * Paint only on the cascade-primary render-staff for each model
+     * {@link Staff}. Priority: `score → tab → slash → numbered`.
+     */
+    Primary = 1
 }
 
 /**
@@ -15637,7 +16284,14 @@ declare class StaffSystemBounds {
      */
     boundsLookup: BoundsLookup;
     /**
-     * Finished the lookup for optimized access.
+     * Whether this system's bounds have already been scaled via `finish`. Prevents double-scaling
+     * when the parent `BoundsLookup` is preserved across partial renders and `finish` is invoked
+     * again on a mix of already-scaled (preserved) and newly-registered (natural-coordinate) systems.
+     */
+    isFinished: boolean;
+    /**
+     * Finished the lookup for optimized access. Idempotent: once finished, further calls are no-ops
+     * so preserved systems survive partial renders without being re-scaled.
      */
     finish(scale?: number): void;
     /**
@@ -15802,6 +16456,24 @@ declare enum SystemCommonType {
 }
 
 /**
+ * Temporal selector for an element across the systems of the score.
+ *
+ * One axis of {@link ElementDisplay}. Independent of
+ * {@link StaffPlacement}.
+ * @public
+ */
+declare enum SystemDisplay {
+    /**
+     * Restate the element at the start of every system.
+     */
+    AllSystems = 0,
+    /**
+     * Show only on the first system; subsequent systems do not restate.
+     */
+    FirstSystemOnly = 1
+}
+
+/**
  * @deprecated Move to the new concrete Midi Event Types.
  * @public
  */
@@ -15832,6 +16504,18 @@ export declare enum SystemsLayoutMode {
 }
 
 /**
+ * Per-bar override for the tablature staff's display.
+ * @record
+ * @json
+ * @public
+ */
+declare interface TabBarOverride {
+    clef?: ElementDisplay;
+    timeSignature?: ElementDisplay;
+    barNumber?: BarNumberDisplay;
+}
+
+/**
  * Lists the different modes on how rhythm notation is shown on the tab staff.
  * @public
  */
@@ -15853,6 +16537,20 @@ export declare enum TabRhythmMode {
      * @since 1.4.0
      */
     Automatic = 3
+}
+
+/**
+ * Per-staff-type display configuration for the tablature staff.
+ * @record
+ * @json
+ * @public
+ */
+declare interface TabStaffConfig {
+    clef?: ElementDisplay;
+    timeSignature?: ElementDisplay;
+    barNumber?: BarNumberDisplay;
+    rhythm?: TabRhythmMode;
+    rests?: ElementDisplay;
 }
 
 /**
@@ -16049,6 +16747,12 @@ declare class Track {
     style?: TrackStyle;
     ensureStaveCount(staveCount: number): void;
     addStaff(staff: Staff): void;
+    /**
+     * Returns the index of {@link articulation} in {@link percussionArticulations},
+     * appending it (deduplicated by `uniqueId`) when not yet present. Callers store the
+     * returned index in {@link Note.percussionArticulation}.
+     */
+    getOrRegisterPercussionArticulation(articulation: InstrumentArticulation): number;
     finish(settings: Settings, sharedDataBag?: Map<string, unknown> | null): void;
     applyLyrics(lyrics: Lyrics[]): void;
 }
@@ -16160,7 +16864,6 @@ declare class TremoloPickingEffect {
      * The style of the tremolo picking.
      */
     style: TremoloPickingStyle;
-
     /**
      * Gets the duration of a single tremolo note played in a beat of the given duration
      * based on the configured marks.
@@ -16277,6 +16980,21 @@ declare class Tuning {
      * on the string values.
      */
     finish(): void;
+}
+
+/**
+ * Lists the different places where string tuning information is displayed.
+ * @public
+ */
+declare enum TuningDisplayMode {
+    /**
+     * Tuning information is displayed above the score.
+     */
+    Score = 0,
+    /**
+     * Tuning note names are displayed beside the corresponding tab staff lines.
+     */
+    Staff = 1
 }
 
 /**
@@ -16454,7 +17172,6 @@ declare class Voice {
     private _isEmpty;
     private _isRestOnly;
     private static _globalVoiceId;
-
     /**
      * Gets or sets the unique id of this bar.
      */
@@ -16482,12 +17199,10 @@ declare class Voice {
      * The style customizations for this item.
      */
     style?: VoiceStyle;
-
     /**
      * Gets or sets a value indicating whether this voice is empty.
      */
     get isRestOnly(): boolean;
-
     insertBeat(after: Beat, newBeat: Beat): void;
     addBeat(beat: Beat): void;
     private _chain;
