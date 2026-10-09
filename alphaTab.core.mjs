@@ -1,5 +1,5 @@
 /*!
-* alphaTab v1.9.0 (release/82f6d370-upstream-merge, build 0)
+* alphaTab v1.9.0 (, build 0)
 *
 * Copyright © 2026, Daniel Kuschny and Contributors, All rights reserved.
 *
@@ -187,8 +187,8 @@ class AlphaTabError extends Error {
 */
 class VersionInfo {
 	static version = "1.9.0";
-	static date = "2026-10-09T16:21:37.289Z";
-	static commit = "f64f0190f6d57473ec78ca109492e1488d029cd3";
+	static date = "2026-10-09T17:13:19.550Z";
+	static commit = "cb1660e1b080529ecc2df9c24e958f308d673df0";
 	static print(print) {
 		print(`alphaTab ${VersionInfo.version}`);
 		print(`commit: ${VersionInfo.commit}`);
@@ -1090,6 +1090,12 @@ var FingeringMode = /* @__PURE__ */ function(FingeringMode) {
 	* fingers are rendered as 1-5 instead of p,i,m,a,c and T,1,2,3,4.
 	*/
 	FingeringMode[FingeringMode["SingleNoteEffectBandForcePiano"] = 3] = "SingleNoteEffectBandForcePiano";
+	/**
+	* Left-hand fingerings are shown next to the note heads in the standard notation staff.
+	* Right-hand fingerings of the first voice are shown in an effect band above the staff, right-hand fingerings
+	* of the other voices in an effect band below the staff (stacked for chords).
+	*/
+	FingeringMode[FingeringMode["ScoreRightHandEffectBand"] = 4] = "ScoreRightHandEffectBand";
 	return FingeringMode;
 }({});
 /**
@@ -53865,9 +53871,10 @@ class FingeringGroupGlyph extends GlyphGroup {
 	}
 	addFingers(note) {
 		const settings = this.renderer.settings;
-		if (settings.notation.fingeringMode !== FingeringMode.ScoreDefault && settings.notation.fingeringMode !== FingeringMode.ScoreForcePiano) return;
+		if (settings.notation.fingeringMode !== FingeringMode.ScoreDefault && settings.notation.fingeringMode !== FingeringMode.ScoreForcePiano && settings.notation.fingeringMode !== FingeringMode.ScoreRightHandEffectBand) return;
 		const symbolLeft = FingeringGroupGlyph.fingerToMusicFontSymbol(this.renderer.settings, note.beat, note.leftHandFinger, true);
 		if (symbolLeft !== MusicFontSymbol.None) this._addFinger(note, symbolLeft);
+		if (settings.notation.fingeringMode === FingeringMode.ScoreRightHandEffectBand) return;
 		const symbolRight = FingeringGroupGlyph.fingerToMusicFontSymbol(this.renderer.settings, note.beat, note.rightHandFinger, false);
 		if (symbolRight !== MusicFontSymbol.None) this._addFinger(note, symbolRight);
 	}
@@ -58644,6 +58651,104 @@ var hammerPullLabelEffectInfo = createEffectSlurLabelEffectInfo("EffectHammerOnP
 * @internal
 */
 var slideLabelEffectInfo = createEffectSlurLabelEffectInfo("EffectSlideText", SlurSegmentKind.LegatoSlide, NotationElement.EffectSlideText);
+//#endregion
+//#region src/rendering/glyphs/StackedFingeringGlyph.ts
+var lineReferenceSymbols = [
+	MusicFontSymbol.FingeringPLower,
+	MusicFontSymbol.FingeringILower,
+	MusicFontSymbol.FingeringMLower,
+	MusicFontSymbol.FingeringALower,
+	MusicFontSymbol.FingeringCLower
+];
+/**
+* Shows the fingering symbols of all notes of a beat as a column centered on the beat,
+* the finger of the highest note on top.
+* @internal
+*/
+class StackedFingeringGlyph extends EffectGlyph {
+	_symbols;
+	_glyphs = [];
+	constructor(symbols) {
+		super(0, 0);
+		this._symbols = symbols;
+	}
+	doLayout() {
+		const metrics = this.renderer.smuflMetrics;
+		const padding = this.renderer.settings.display.effectBandPaddingBottom;
+		let ascent = 0;
+		let descent = 0;
+		for (const symbol of lineReferenceSymbols.concat(this._symbols)) {
+			const top = metrics.glyphTop.get(symbol);
+			ascent = Math.max(ascent, top);
+			descent = Math.max(descent, metrics.glyphHeights.get(symbol) - top);
+		}
+		const lineHeight = ascent + descent;
+		let y = 0;
+		let width = 0;
+		this._glyphs = [];
+		for (const symbol of this._symbols) {
+			const g = new MusicFontGlyph(0, y, 1, symbol);
+			g.center = true;
+			g.renderer = this.renderer;
+			g.doLayout();
+			g.offsetY = ascent;
+			this._glyphs.push(g);
+			y += lineHeight + padding;
+			if (g.width > width) width = g.width;
+		}
+		this.width = width;
+		this.height = this._glyphs.length > 0 ? y - padding : 0;
+	}
+	getBoundingBoxLeft() {
+		return this.x - this.width / 2;
+	}
+	getBoundingBoxRight() {
+		return this.x + this.width / 2;
+	}
+	paint(cx, cy, canvas) {
+		for (const g of this._glyphs) g.paint(cx + this.x, cy + this.y, canvas);
+	}
+}
+//#endregion
+//#region src/rendering/effects/RightHandFingeringEffectInfo.ts
+function rightHandNotes(beat) {
+	const notes = [];
+	for (const n of beat.notes) if (n.isVisible && n.rightHandFinger !== Fingers.Unknown) notes.push(n);
+	return notes;
+}
+/**
+* Right-hand fingerings for {@link FingeringMode.ScoreRightHandEffectBand}: the first voice above the staff,
+* the other voices below the staff.
+*/
+function createRightHandFingeringEffectInfo(effectId, upperVoice) {
+	return {
+		effectId,
+		notationElement: NotationElement.EffectFingering,
+		hideOnMultiTrack: false,
+		sizingMode: EffectBarGlyphSizing.SingleOnBeat,
+		shouldCreateGlyph: (renderer, beat) => {
+			if (beat.isRest || renderer.settings.notation.fingeringMode !== FingeringMode.ScoreRightHandEffectBand || upperVoice !== (beat.voice.index === 0)) return false;
+			return rightHandNotes(beat).length > 0;
+		},
+		createNewGlyph: (renderer, beat) => {
+			const notes = rightHandNotes(beat);
+			notes.sort((a, b) => b.realValue - a.realValue);
+			const symbols = [];
+			for (const n of notes) symbols.push(FingeringGroupGlyph.fingerToMusicFontSymbol(renderer.settings, beat, n.rightHandFinger, false));
+			return new StackedFingeringGlyph(symbols);
+		},
+		canExpand: (_from, _to) => true,
+		placementCategory: EffectBandPlacementCategory.NoteAttached
+	};
+}
+/**
+* @internal
+*/
+var rightHandFingeringAboveEffectInfo = createRightHandFingeringEffectInfo("EffectRightHandFingeringAbove", true);
+/**
+* @internal
+*/
+var rightHandFingeringBelowEffectInfo = createRightHandFingeringEffectInfo("EffectRightHandFingeringBelow", false);
 //#endregion
 //#region src/rendering/glyphs/BarTempoGlyph.ts
 /**
@@ -69454,6 +69559,14 @@ class Environment {
 			{
 				effect: hammerPullLabelEffectInfo,
 				mode: EffectBandMode.OwnedTop
+			},
+			{
+				effect: rightHandFingeringAboveEffectInfo,
+				mode: EffectBandMode.OwnedTop
+			},
+			{
+				effect: rightHandFingeringBelowEffectInfo,
+				mode: EffectBandMode.OwnedBottom
 			},
 			{
 				effect: createGolpeEffectInfo(GolpeType.Thumb),

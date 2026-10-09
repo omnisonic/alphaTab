@@ -8704,7 +8704,13 @@ export declare enum FingeringMode {
      * they have only a single note on the beat. Piano finger style is enforced, where
      * fingers are rendered as 1-5 instead of p,i,m,a,c and T,1,2,3,4.
      */
-    SingleNoteEffectBandForcePiano = 3
+    SingleNoteEffectBandForcePiano = 3,
+    /**
+     * Left-hand fingerings are shown next to the note heads in the standard notation staff.
+     * Right-hand fingerings of the first voice are shown in an effect band above the staff, right-hand fingerings
+     * of the other voices in an effect band below the staff (stacked for chords).
+     */
+    ScoreRightHandEffectBand = 4
 }
 
 /**

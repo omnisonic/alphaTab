@@ -1,5 +1,5 @@
 /*!
-* alphaTab v1.9.0 (release/82f6d370-upstream-merge, build 0)
+* alphaTab v1.9.0 (, build 0)
 *
 * Copyright © 2026, Daniel Kuschny and Contributors, All rights reserved.
 *
