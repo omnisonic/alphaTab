@@ -22,9 +22,7 @@ import { SkiaCanvas } from '@coderline/alphatab/platform/skia/SkiaCanvas';
 import { CssFontSvgCanvas } from '@coderline/alphatab/platform/svg/CssFontSvgCanvas';
 import { AlphaSynthWebWorker } from '@coderline/alphatab/platform/worker/AlphaSynthWebWorker';
 import { AlphaTabWebWorker } from '@coderline/alphatab/platform/worker/AlphaTabWebWorker';
-import type {
-    IAlphaTabWorkerGlobalScope
-} from '@coderline/alphatab/platform/worker/AlphaTabWorkerProtocol';
+import type { IAlphaTabWorkerGlobalScope } from '@coderline/alphatab/platform/worker/AlphaTabWorkerProtocol';
 import { type BarRendererFactory, EffectBandMode } from '@coderline/alphatab/rendering/BarRendererFactory';
 import { alternateEndingsEffectInfo } from '@coderline/alphatab/rendering/effects/AlternateEndingsEffectInfo';
 import { barNumberEffectInfo } from '@coderline/alphatab/rendering/effects/BarNumberEffectInfo';
@@ -58,7 +56,14 @@ import { createSlightNoteVibratoEffectInfo } from '@coderline/alphatab/rendering
 import { sustainPedalEffectInfo } from '@coderline/alphatab/rendering/effects/SustainPedalEffectInfo';
 import { tabWhammyEffectInfo } from '@coderline/alphatab/rendering/effects/TabWhammyEffectInfo';
 import { tapEffectInfo } from '@coderline/alphatab/rendering/effects/TapEffectInfo';
-import { hammerPullLabelEffectInfo, slideLabelEffectInfo } from '@coderline/alphatab/rendering/effects/EffectSlurLabelEffectInfo';
+import {
+    hammerPullLabelEffectInfo,
+    slideLabelEffectInfo
+} from '@coderline/alphatab/rendering/effects/EffectSlurLabelEffectInfo';
+import {
+    rightHandFingeringAboveEffectInfo,
+    rightHandFingeringBelowEffectInfo
+} from '@coderline/alphatab/rendering/effects/RightHandFingeringEffectInfo';
 import { tempoEffectInfo } from '@coderline/alphatab/rendering/effects/TempoEffectInfo';
 import { textEffectInfo } from '@coderline/alphatab/rendering/effects/TextEffectInfo';
 import { trillEffectInfo } from '@coderline/alphatab/rendering/effects/TrillEffectInfo';
@@ -516,7 +521,9 @@ export class Environment {
             // last = closest to the staff: H/P directly above the staff, sl. stacked above
             { effect: slideLabelEffectInfo, mode: EffectBandMode.OwnedTop },
             { effect: hammerPullLabelEffectInfo, mode: EffectBandMode.OwnedTop },
+            { effect: rightHandFingeringAboveEffectInfo, mode: EffectBandMode.OwnedTop },
 
+            { effect: rightHandFingeringBelowEffectInfo, mode: EffectBandMode.OwnedBottom },
             { effect: createGolpeEffectInfo(GolpeType.Thumb), mode: EffectBandMode.OwnedBottom },
             { effect: crescendoEffectInfo, mode: EffectBandMode.SharedBottom },
             // NOTE: all octave signs are currently shown above, but 8vb could be shown as 8va below the staff

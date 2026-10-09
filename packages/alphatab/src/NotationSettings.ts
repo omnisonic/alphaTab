@@ -46,7 +46,14 @@ export enum FingeringMode {
      * they have only a single note on the beat. Piano finger style is enforced, where
      * fingers are rendered as 1-5 instead of p,i,m,a,c and T,1,2,3,4.
      */
-    SingleNoteEffectBandForcePiano = 3
+    SingleNoteEffectBandForcePiano = 3,
+    /**
+     * Left-hand fingerings are shown next to the note heads in the standard notation staff.
+     * Right-hand fingerings of the first voice are shown in an effect band above the staff (stacked for chords).
+     * Right-hand fingerings of the other voices are hidden unless {@link NotationSettings.showLowerVoiceRightHandFingering}
+     * is enabled, in which case they are shown in an effect band below the staff.
+     */
+    ScoreRightHandEffectBand = 4
 }
 
 /**
@@ -449,6 +456,18 @@ export class NotationSettings {
      * | ![Enabled](https://alphatab.net/img/reference/property/fingeringmode-score.png) | ![Disabled](https://alphatab.net/img/reference/property/fingeringmode-effectband.png) |
      */
     public fingeringMode: FingeringMode = FingeringMode.ScoreDefault;
+
+    /**
+     * Whether right-hand fingerings of the lower voices are shown.
+     * @since 1.9.0
+     * @category Notation
+     * @defaultValue `false`
+     * @remarks
+     * Only applies when {@link fingeringMode} is {@link FingeringMode.ScoreRightHandEffectBand}. Right-hand fingerings
+     * of the lower voices (typically the thumb on bass notes) are commonly omitted in guitar scores. When enabled,
+     * they are shown in an effect band below the staff.
+     */
+    public showLowerVoiceRightHandFingering: boolean = false;
 
     /**
      * Whether music notation elements are visible or not.

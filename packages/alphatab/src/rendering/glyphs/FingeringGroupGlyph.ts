@@ -43,7 +43,8 @@ export class FingeringGroupGlyph extends GlyphGroup {
         const settings = this.renderer.settings;
         if (
             settings.notation.fingeringMode !== FingeringMode.ScoreDefault &&
-            settings.notation.fingeringMode !== FingeringMode.ScoreForcePiano
+            settings.notation.fingeringMode !== FingeringMode.ScoreForcePiano &&
+            settings.notation.fingeringMode !== FingeringMode.ScoreRightHandEffectBand
         ) {
             return;
         }
@@ -56,6 +57,10 @@ export class FingeringGroupGlyph extends GlyphGroup {
         );
         if (symbolLeft !== MusicFontSymbol.None) {
             this._addFinger(note, symbolLeft);
+        }
+        // right-hand fingerings are placed in their own effect bands (see RightHandFingeringEffectInfo)
+        if (settings.notation.fingeringMode === FingeringMode.ScoreRightHandEffectBand) {
+            return;
         }
         const symbolRight = FingeringGroupGlyph.fingerToMusicFontSymbol(
             this.renderer.settings,

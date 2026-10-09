@@ -26,6 +26,7 @@ export class NotationSettingsSerializer {
         const o = new Map<string, unknown>();
         o.set("notationmode", obj.notationMode as number);
         o.set("fingeringmode", obj.fingeringMode as number);
+        o.set("showlowervoicerighthandfingering", obj.showLowerVoiceRightHandFingering);
         {
             const m = new Map<string, unknown>();
             o.set("elements", m);
@@ -50,6 +51,9 @@ export class NotationSettingsSerializer {
                 return true;
             case "fingeringmode":
                 obj.fingeringMode = JsonHelper.parseEnum<FingeringMode>(v, FingeringMode)!;
+                return true;
+            case "showlowervoicerighthandfingering":
+                obj.showLowerVoiceRightHandFingering = v! as boolean;
                 return true;
             case "elements":
                 obj.elements = new Map<NotationElement, boolean>();
