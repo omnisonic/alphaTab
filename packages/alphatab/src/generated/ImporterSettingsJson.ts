@@ -23,10 +23,20 @@ export interface ImporterSettingsJson {
      *
      * * Guitar Pro 7
      * * Guitar Pro 6
-     * * Guitar Pro 3-5
      * * MusicXML
      */
     encoding?: string;
+    /**
+     * The text encoding to use when decoding strings within GuitarPro3-5 files.
+     * @since 1.9.0
+     * @defaultValue `windows-1252`
+     * @category Importer
+     * @remarks
+     * Guitar Pro 3-5 encode strings as system specific ANSI encoding, typically Windows-1252 in western system cultures.
+     * This is different to the other typically used utf-8 encoding.
+     * Via this setting the Guitar Pro 3-5 specific decoding can be used.
+     */
+    gp3To5encoding?: string;
     /**
      * If part-groups should be merged into a single track (MusicXML).
      * @since 0.9.6
@@ -67,4 +77,15 @@ export interface ImporterSettingsJson {
      * ![Disabled](https://alphatab.net/img/reference/property/beattextaslyrics-disabled.png)
      */
     beatTextAsLyrics?: boolean;
+    /**
+     * This setting controls the escape hatch for handling potentially malicous or corrupt
+     * input files. At selected spots in the codebase, we use this buffer size as maximum
+     * allowed sizes. e.g. during unzipping or decoding strings.
+     * This prevents resource exhaustion, especially when alphaTab is used on server side.
+     * Increase this buffer size if you need to handle very big files.
+     * @defaultValue `128000000`
+     * @category Core
+     * @since 1.9.0
+     */
+    maxDecodingBufferSize?: number;
 }

@@ -1,15 +1,13 @@
 import { type Beat, BeatSubElement } from '@coderline/alphatab/model/Beat';
-import { Duration } from '@coderline/alphatab/model/Duration';
 import type { Note } from '@coderline/alphatab/model/Note';
 import { type ICanvas, TextBaseline } from '@coderline/alphatab/platform/ICanvas';
+import type { RenderingResources } from '@coderline/alphatab/RenderingResources';
 import { NoteXPosition, NoteYPosition } from '@coderline/alphatab/rendering/BarRendererBase';
 import { DeadSlappedBeatGlyph } from '@coderline/alphatab/rendering/glyphs/DeadSlappedBeatGlyph';
 import { Glyph } from '@coderline/alphatab/rendering/glyphs/Glyph';
 import type { NoteNumberGlyph } from '@coderline/alphatab/rendering/glyphs/NoteNumberGlyph';
-import { TremoloPickingGlyph } from '@coderline/alphatab/rendering/glyphs/TremoloPickingGlyph';
 import type { BeatBounds } from '@coderline/alphatab/rendering/utils/BeatBounds';
 import { ElementStyleHelper } from '@coderline/alphatab/rendering/utils/ElementStyleHelper';
-import type { RenderingResources } from '@coderline/alphatab/RenderingResources';
 
 /**
  * @internal
@@ -85,33 +83,11 @@ export class TabNoteChordGlyph extends Glyph {
                 case NoteYPosition.StemDown:
                     pos = this.y + n.getBoundingBoxBottom();
                     break;
-                case NoteYPosition.TopWithStem:
-                    pos = -this.renderer.settings.notation.rhythmHeight;
-                    pos -= this.calculateTremoloHeightForStem();
-                    break;
-
-                case NoteYPosition.BottomWithStem:
-                    pos = this.renderer.height + this.renderer.settings.notation.rhythmHeight;
-                    pos += this.calculateTremoloHeightForStem();
-                    break;
             }
 
             return pos;
         }
         return 0;
-    }
-
-    public calculateTremoloHeightForStem() {
-        const beat = this.beat;
-        if (!beat.isTremolo) {
-            return 0;
-        }
-        if (beat.duration <= Duration.Quarter) {
-            return 0;
-        }
-        const symbol = TremoloPickingGlyph._getSymbol(beat.tremoloPicking!);
-        const smufl = this.renderer.smuflMetrics;
-        return smufl.glyphHeights.has(symbol) ? smufl.glyphHeights.get(symbol)! : 0;
     }
 
     public override doLayout(): void {
@@ -161,7 +137,7 @@ export class TabNoteChordGlyph extends Glyph {
             }
 
             if (!Number.isNaN(minEffectY)) {
-                this.renderer.registerBeatEffectOverflows(minEffectY, maxEffectY);
+                this.renderer.registerBeatEffectOverflowsForBeat(this.beat, minEffectY, maxEffectY);
             }
         }
 

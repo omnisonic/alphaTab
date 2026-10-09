@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { Gp3To5Importer } from '@coderline/alphatab/importer/Gp3To5Importer';
 import { Gp7To8Importer } from '@coderline/alphatab/importer/Gp7To8Importer';
 import { ScoreLoader } from '@coderline/alphatab/importer/ScoreLoader';
@@ -11,7 +12,7 @@ import {
     NoteOnEvent,
     type TimeSignatureEvent
 } from '@coderline/alphatab/midi/MidiEvent';
-import { MidiFile } from '@coderline/alphatab/midi/MidiFile';
+import { MidiFile, MidiFileFormat } from '@coderline/alphatab/midi/MidiFile';
 import { MidiFileGenerator } from '@coderline/alphatab/midi/MidiFileGenerator';
 import type { MidiTickLookup } from '@coderline/alphatab/midi/MidiTickLookup';
 import { MidiUtils } from '@coderline/alphatab/midi/MidiUtils';
@@ -31,10 +32,9 @@ import { AlphaSynth } from '@coderline/alphatab/synth/AlphaSynth';
 import { AlphaSynthWrapper } from '@coderline/alphatab/synth/AlphaSynthWrapper';
 import { PlaybackRange } from '@coderline/alphatab/synth/PlaybackRange';
 import type { PositionChangedEventArgs } from '@coderline/alphatab/synth/PositionChangedEventArgs';
-import { expect } from 'chai';
 import {
     FlatControlChangeEvent,
-    FlatMidiEvent,
+    type FlatMidiEvent,
     FlatMidiEventGenerator,
     FlatNoteBendEvent,
     FlatNoteEvent,
@@ -59,13 +59,13 @@ describe('MidiFileGeneratorTest', () => {
         for (let i: number = 0; i < actualEvents.length; i++) {
             Logger.info('Test', `i[${i}] ${actualEvents[i]}`);
             if (i < expectedEvents.length) {
-                expect(expectedEvents[i].equals(actualEvents[i])).to.equal(
-                    true,
+                expect(
+                    expectedEvents[i].equals(actualEvents[i]),
                     `i[${i}] expected[${expectedEvents[i]}] !== actual[${actualEvents[i]}]`
-                );
+                ).toBe(true);
             }
         }
-        expect(actualEvents.length).to.equal(expectedEvents.length);
+        expect(actualEvents.length).toBe(expectedEvents.length);
     };
 
     it('full-song', async () => {
@@ -84,22 +84,22 @@ describe('MidiFileGeneratorTest', () => {
         midiFile.addEvent(new NoteOnEvent(0, 100, 0, 2, 0));
         midiFile.addEvent(new NoteOnEvent(0, 50, 0, 3, 0));
         midiFile.addEvent(new NoteOnEvent(0, 50, 0, 4, 0));
-        expect((midiFile.tracks[0].events[0] as NoteOnEvent).noteKey).to.equal(0);
-        expect((midiFile.tracks[0].events[1] as NoteOnEvent).noteKey).to.equal(1);
-        expect((midiFile.tracks[0].events[2] as NoteOnEvent).noteKey).to.equal(3);
-        expect((midiFile.tracks[0].events[3] as NoteOnEvent).noteKey).to.equal(4);
-        expect((midiFile.tracks[0].events[4] as NoteOnEvent).noteKey).to.equal(2);
+        expect((midiFile.tracks[0].events[0] as NoteOnEvent).noteKey).toBe(0);
+        expect((midiFile.tracks[0].events[1] as NoteOnEvent).noteKey).toBe(1);
+        expect((midiFile.tracks[0].events[2] as NoteOnEvent).noteKey).toBe(3);
+        expect((midiFile.tracks[0].events[3] as NoteOnEvent).noteKey).toBe(4);
+        expect((midiFile.tracks[0].events[4] as NoteOnEvent).noteKey).toBe(2);
     });
 
     it('bend', () => {
         const tex: string = ':4 15.6{b(0 4)} 15.6';
         const score: Score = parseTex(tex);
-        expect(score.tracks.length).to.equal(1);
-        expect(score.tracks[0].staves[0].bars.length).to.equal(1);
-        expect(score.tracks[0].staves[0].bars[0].voices.length).to.equal(1);
-        expect(score.tracks[0].staves[0].bars[0].voices[0].beats.length).to.equal(2);
-        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes.length).to.equal(1);
-        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[1].notes.length).to.equal(1);
+        expect(score.tracks.length).toBe(1);
+        expect(score.tracks[0].staves[0].bars.length).toBe(1);
+        expect(score.tracks[0].staves[0].bars[0].voices.length).toBe(1);
+        expect(score.tracks[0].staves[0].bars[0].voices[0].beats.length).toBe(2);
+        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes.length).toBe(1);
+        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[1].notes.length).toBe(1);
         const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
         const generator: MidiFileGenerator = new MidiFileGenerator(score, null, handler);
         generator.generate();
@@ -188,39 +188,39 @@ describe('MidiFileGeneratorTest', () => {
         // on beat
         let tick: number = 0;
         const ticks: number[] = [];
-        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[0].absolutePlaybackStart).to.equal(tick);
-        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[0].playbackDuration).to.equal(3840);
+        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[0].absolutePlaybackStart).toBe(tick);
+        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[0].playbackDuration).toBe(3840);
         ticks.push(tick);
         tick += score.tracks[0].staves[0].bars[0].voices[0].beats[0].playbackDuration;
-        expect(score.tracks[0].staves[0].bars[1].voices[0].beats[0].absolutePlaybackStart).to.equal(tick);
-        expect(score.tracks[0].staves[0].bars[1].voices[0].beats[0].playbackDuration).to.equal(120);
+        expect(score.tracks[0].staves[0].bars[1].voices[0].beats[0].absolutePlaybackStart).toBe(tick);
+        expect(score.tracks[0].staves[0].bars[1].voices[0].beats[0].playbackDuration).toBe(120);
         ticks.push(tick);
         tick += score.tracks[0].staves[0].bars[1].voices[0].beats[0].playbackDuration;
-        expect(score.tracks[0].staves[0].bars[1].voices[0].beats[1].absolutePlaybackStart).to.equal(tick);
-        expect(score.tracks[0].staves[0].bars[1].voices[0].beats[1].playbackDuration).to.equal(3720);
+        expect(score.tracks[0].staves[0].bars[1].voices[0].beats[1].absolutePlaybackStart).toBe(tick);
+        expect(score.tracks[0].staves[0].bars[1].voices[0].beats[1].playbackDuration).toBe(3720);
         ticks.push(tick);
         tick += score.tracks[0].staves[0].bars[1].voices[0].beats[1].playbackDuration;
         // before beat
-        expect(score.tracks[0].staves[0].bars[2].voices[0].beats[0].absolutePlaybackStart).to.equal(tick);
-        expect(score.tracks[0].staves[0].bars[2].voices[0].beats[0].playbackDuration).to.equal(3720);
+        expect(score.tracks[0].staves[0].bars[2].voices[0].beats[0].absolutePlaybackStart).toBe(tick);
+        expect(score.tracks[0].staves[0].bars[2].voices[0].beats[0].playbackDuration).toBe(3720);
         ticks.push(tick);
         tick += score.tracks[0].staves[0].bars[2].voices[0].beats[0].playbackDuration;
-        expect(score.tracks[0].staves[0].bars[3].voices[0].beats[0].absolutePlaybackStart).to.equal(tick);
-        expect(score.tracks[0].staves[0].bars[3].voices[0].beats[0].playbackDuration).to.equal(120);
+        expect(score.tracks[0].staves[0].bars[3].voices[0].beats[0].absolutePlaybackStart).toBe(tick);
+        expect(score.tracks[0].staves[0].bars[3].voices[0].beats[0].playbackDuration).toBe(120);
         ticks.push(tick);
         tick += score.tracks[0].staves[0].bars[3].voices[0].beats[0].playbackDuration;
-        expect(score.tracks[0].staves[0].bars[3].voices[0].beats[1].absolutePlaybackStart).to.equal(tick);
-        expect(score.tracks[0].staves[0].bars[3].voices[0].beats[1].playbackDuration).to.equal(3840);
+        expect(score.tracks[0].staves[0].bars[3].voices[0].beats[1].absolutePlaybackStart).toBe(tick);
+        expect(score.tracks[0].staves[0].bars[3].voices[0].beats[1].playbackDuration).toBe(3840);
         ticks.push(tick);
         tick += score.tracks[0].staves[0].bars[3].voices[0].beats[1].playbackDuration;
         // bend
-        expect(score.tracks[0].staves[0].bars[4].voices[0].beats[0].graceType).to.equal(GraceType.BendGrace);
-        expect(score.tracks[0].staves[0].bars[4].voices[0].beats[0].absolutePlaybackStart).to.equal(tick);
-        expect(score.tracks[0].staves[0].bars[4].voices[0].beats[0].playbackDuration).to.equal(1920);
+        expect(score.tracks[0].staves[0].bars[4].voices[0].beats[0].graceType).toBe(GraceType.BendGrace);
+        expect(score.tracks[0].staves[0].bars[4].voices[0].beats[0].absolutePlaybackStart).toBe(tick);
+        expect(score.tracks[0].staves[0].bars[4].voices[0].beats[0].playbackDuration).toBe(1920);
         ticks.push(tick);
         tick += score.tracks[0].staves[0].bars[4].voices[0].beats[0].playbackDuration;
-        expect(score.tracks[0].staves[0].bars[4].voices[0].beats[1].absolutePlaybackStart).to.equal(tick);
-        expect(score.tracks[0].staves[0].bars[4].voices[0].beats[1].playbackDuration).to.equal(1920);
+        expect(score.tracks[0].staves[0].bars[4].voices[0].beats[1].absolutePlaybackStart).toBe(tick);
+        expect(score.tracks[0].staves[0].bars[4].voices[0].beats[1].playbackDuration).toBe(1920);
         ticks.push(tick);
         tick += score.tracks[0].staves[0].bars[4].voices[0].beats[1].playbackDuration;
         const info: PlaybackInformation = score.tracks[0].playbackInfo;
@@ -299,12 +299,12 @@ describe('MidiFileGeneratorTest', () => {
     it('bend-multi-point', () => {
         const tex: string = ':4 15.6{b(0 4 0)} 15.6';
         const score: Score = parseTex(tex);
-        expect(score.tracks.length).to.equal(1);
-        expect(score.tracks[0].staves[0].bars.length).to.equal(1);
-        expect(score.tracks[0].staves[0].bars[0].voices.length).to.equal(1);
-        expect(score.tracks[0].staves[0].bars[0].voices[0].beats.length).to.equal(2);
-        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes.length).to.equal(1);
-        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[1].notes.length).to.equal(1);
+        expect(score.tracks.length).toBe(1);
+        expect(score.tracks[0].staves[0].bars.length).toBe(1);
+        expect(score.tracks[0].staves[0].bars[0].voices.length).toBe(1);
+        expect(score.tracks[0].staves[0].bars[0].voices[0].beats.length).toBe(2);
+        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes.length).toBe(1);
+        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[1].notes.length).toBe(1);
         const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
         const generator: MidiFileGenerator = new MidiFileGenerator(score, null, handler);
         generator.generate();
@@ -615,65 +615,144 @@ describe('MidiFileGeneratorTest', () => {
         assertEvents(handler.midiEvents, expectedEvents);
     });
 
-    it('triplet-feel', () => {
-        const tex: string =
-            '\\ts 2 4 \\tf t8 3.2.8*4 | \\tf t16 3.2.16*8 | \\tf d8 3.2.8*4 | \\tf d16 3.2.16*8 | \\tf s8 3.2.8*4 | \\tf s16 3.2.16*8';
-        const score: Score = parseTex(tex);
-        // prettier-ignore
-        const expectedPlaybackStartTimes: number[] = [
-            0, 480, 960, 1440, 0, 240, 480, 720, 960, 1200, 1440, 1680, 0, 480, 960, 1440, 0, 240, 480, 720, 960, 1200,
-            1440, 1680, 0, 480, 960, 1440, 0, 240, 480, 720, 960, 1200, 1440, 1680
-        ];
-        // prettier-ignore
-        const expectedPlaybackDurations: number[] = [
-            480, 480, 480, 480, 240, 240, 240, 240, 240, 240, 240, 240, 480, 480, 480, 480, 240, 240, 240, 240, 240,
-            240, 240, 240, 480, 480, 480, 480, 240, 240, 240, 240, 240, 240, 240, 240
-        ];
-        const actualPlaybackStartTimes: number[] = [];
-        const actualPlaybackDurations: number[] = [];
-        let beat: Beat | null = score.tracks[0].staves[0].bars[0].voices[0].beats[0];
-        while (beat) {
-            actualPlaybackStartTimes.push(beat.playbackStart);
-            actualPlaybackDurations.push(beat.playbackDuration);
-            beat = beat.nextBeat;
-        }
-        expect(actualPlaybackStartTimes.join(',')).to.equal(expectedPlaybackStartTimes.join(','));
-        expect(actualPlaybackDurations.join(',')).to.equal(expectedPlaybackDurations.join(','));
-        // prettier-ignore
-        const expectedMidiStartTimes: number[] = [
-            0, 640, 960, 1600, 1920, 2240, 2400, 2720, 2880, 3200, 3360, 3680, 3840, 4560, 4800, 5520, 5760, 6120, 6240,
-            6600, 6720, 7080, 7200, 7560, 7680, 7920, 8640, 8880, 9600, 9720, 10080, 10200, 10560, 10680, 11040, 11160
-        ];
-        // prettier-ignore
-        const expectedMidiDurations: number[] = [
-            640, 320, 640, 320, 320, 160, 320, 160, 320, 160, 320, 160, 720, 240, 720, 240, 360, 120, 360, 120, 360,
-            120, 360, 120, 240, 720, 240, 720, 120, 360, 120, 360, 120, 360, 120, 360
-        ];
+    describe('triplet-feel', () => {
+        function testTripletFeel(
+            tex: string,
+            expectedPlaybackStartTimes: number[],
+            expectedPlaybackDurations: number[],
+            expectedMidiStartTimes: number[],
+            expectedMidiDurations: number[]
+        ) {
+            const score: Score = parseTex(tex);
 
-        const actualMidiStartTimes: number[] = [];
-        const actualMidiDurations: number[] = [];
-        const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
-        const generator: MidiFileGenerator = new MidiFileGenerator(score, null, handler);
-        generator.generate();
-        for (const midiEvent of handler.midiEvents) {
-            if (midiEvent instanceof FlatNoteEvent) {
-                actualMidiStartTimes.push(midiEvent.tick);
-                actualMidiDurations.push(midiEvent.length);
+            const actualPlaybackStartTimes: number[] = [];
+            const actualPlaybackDurations: number[] = [];
+            let beat: Beat | null = score.tracks[0].staves[0].bars[0].voices[0].beats[0];
+            while (beat) {
+                actualPlaybackStartTimes.push(beat.playbackStart);
+                actualPlaybackDurations.push(beat.playbackDuration);
+                beat = beat.nextBeat;
             }
+            expect(actualPlaybackStartTimes.join(','), 'expectedPlaybackStartTimes').toBe(
+                expectedPlaybackStartTimes.join(',')
+            );
+            expect(actualPlaybackDurations.join(','), 'expectedPlaybackDurations').toBe(
+                expectedPlaybackDurations.join(',')
+            );
+
+            const actualMidiStartTimes: number[] = [];
+            const actualMidiDurations: number[] = [];
+            const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
+            const generator: MidiFileGenerator = new MidiFileGenerator(score, null, handler);
+            generator.generate();
+            for (const midiEvent of handler.midiEvents) {
+                if (midiEvent instanceof FlatNoteEvent) {
+                    actualMidiStartTimes.push(midiEvent.tick);
+                    actualMidiDurations.push(midiEvent.length);
+                }
+            }
+            expect(actualMidiStartTimes.join(','), 'expectedMidiStartTimes').toBe(expectedMidiStartTimes.join(','));
+            expect(actualMidiDurations.join(','), 'expectedMidiDurations').toBe(expectedMidiDurations.join(','));
         }
-        expect(actualMidiStartTimes.join(',')).to.equal(expectedMidiStartTimes.join(','));
-        expect(actualMidiDurations.join(',')).to.equal(expectedMidiDurations.join(','));
+
+        it('variants', () => {
+            const tex: string =
+                '\\ts 2 4 \\tf t8 3.2.8*4 | \\tf t16 3.2.16*8 | \\tf d8 3.2.8*4 | \\tf d16 3.2.16*8 | \\tf s8 3.2.8*4 | \\tf s16 3.2.16*8';
+            const expectedPlaybackStartTimes: number[] = [
+                0, 480, 960, 1440, 0, 240, 480, 720, 960, 1200, 1440, 1680, 0, 480, 960, 1440, 0, 240, 480, 720, 960,
+                1200, 1440, 1680, 0, 480, 960, 1440, 0, 240, 480, 720, 960, 1200, 1440, 1680
+            ];
+            const expectedPlaybackDurations: number[] = [
+                480, 480, 480, 480, 240, 240, 240, 240, 240, 240, 240, 240, 480, 480, 480, 480, 240, 240, 240, 240, 240,
+                240, 240, 240, 480, 480, 480, 480, 240, 240, 240, 240, 240, 240, 240, 240
+            ];
+            const expectedMidiStartTimes: number[] = [
+                0, 640, 960, 1600, 1920, 2240, 2400, 2720, 2880, 3200, 3360, 3680, 3840, 4560, 4800, 5520, 5760, 6120,
+                6240, 6600, 6720, 7080, 7200, 7560, 7680, 7920, 8640, 8880, 9600, 9720, 10080, 10200, 10560, 10680,
+                11040, 11160
+            ];
+            const expectedMidiDurations: number[] = [
+                640, 320, 640, 320, 320, 160, 320, 160, 320, 160, 320, 160, 720, 240, 720, 240, 360, 120, 360, 120, 360,
+                120, 360, 120, 240, 720, 240, 720, 120, 360, 120, 360, 120, 360, 120, 360
+            ];
+            testTripletFeel(
+                tex,
+                expectedPlaybackStartTimes,
+                expectedPlaybackDurations,
+                expectedMidiStartTimes,
+                expectedMidiDurations
+            );
+        });
+
+        it('not-matching-with-grace', () => {
+            testTripletFeel(
+                `
+            \\tf triplet8th
+            0.1.8
+            0.1.8{gr onbeat}
+            0.1.4
+            0.1.8
+            0.1.8
+            0.1.8
+            0.1.8
+            0.1.8 |
+            0.1.8 * 8
+            `,
+                // no swing on playback start/durations
+                [
+                    // Bar 1
+                    0, 480, 600, 1440, 1920, 2400, 2880, 3360,
+                    // Bar 2
+                    0, 480, 960, 1440, 1920, 2400, 2880, 3360
+                ],
+                [
+                    // Bar 1
+                    480, 120, 840, 480, 480, 480, 480, 480,
+                    // Bar 2
+                    480, 480, 480, 480, 480, 480, 480, 480
+                ],
+                // swing on generated midi
+                [
+                    // Bar 1
+                    // no swing on the first 4 notes as they do not align with the swing definition
+                    0, 480, 600, 1440,
+                    // the last two 8th note pairs swing
+                    1920, 2560, 2880, 3520,
+                    // Bar 2 fully swings
+                    3840, 4480, 4800, 5440, 5760, 6400, 6720, 7360
+                ],
+                [
+                    // no swing
+                    480, 120, 840, 480,
+                    // the last two 8th note pairs swing
+                    640, 320, 640, 320,
+                    // Swing on second bar
+                    640, 320, 640, 320, 640, 320, 640, 320
+                ]
+            );
+        });
+
+        it('anacrusis', () => {
+            // the pick-up forms the end of a full bar: the first eighth is an offbeat
+            testTripletFeel(
+                '\\ts 2 4 \\ac \\tf t8 3.2.8*3 | \\tf t8 3.2.8*4',
+                [0, 480, 960, 0, 480, 960, 1440],
+                [480, 480, 480, 480, 480, 480, 480],
+                [0, 480, 1120, 1440, 2080, 2400, 3040],
+                [480, 640, 320, 640, 320, 640, 320]
+            );
+        });
     });
 
     it('beat-multi-bend', () => {
         const tex: string = ':4 (15.6{b(0 4)} 14.6{b(0 8)}) 15.6';
         const score: Score = parseTex(tex);
-        expect(score.tracks.length).to.equal(1);
-        expect(score.tracks[0].staves[0].bars.length).to.equal(1);
-        expect(score.tracks[0].staves[0].bars[0].voices.length).to.equal(1);
-        expect(score.tracks[0].staves[0].bars[0].voices[0].beats.length).to.equal(2);
-        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes.length).to.equal(2);
-        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[1].notes.length).to.equal(1);
+        expect(score.tracks.length).toBe(1);
+        expect(score.tracks[0].staves[0].bars.length).toBe(1);
+        expect(score.tracks[0].staves[0].bars[0].voices.length).toBe(1);
+        expect(score.tracks[0].staves[0].bars[0].voices[0].beats.length).toBe(2);
+        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes.length).toBe(2);
+        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[1].notes.length).toBe(1);
         const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
         const generator: MidiFileGenerator = new MidiFileGenerator(score, null, handler);
         generator.generate();
@@ -792,8 +871,8 @@ describe('MidiFileGeneratorTest', () => {
     it('tied-vibrato', () => {
         const tex: string = '3.3{v}.4 -.3{v}.4';
         const score: Score = parseTex(tex);
-        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes[0].vibrato).to.equal(VibratoType.Slight);
-        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[1].notes[0].isTieDestination).to.be.true;
+        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes[0].vibrato).toBe(VibratoType.Slight);
+        expect(score.tracks[0].staves[0].bars[0].voices[0].beats[1].notes[0].isTieDestination).toBe(true);
         score.tracks[0].staves[0].bars[0].voices[0].beats[1].notes[0].vibrato = VibratoType.None;
         const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
         const settings = new Settings();
@@ -1190,7 +1269,7 @@ describe('MidiFileGeneratorTest', () => {
     it('full-bar-rest', () => {
         const tex: string = '\\ts 3 4 3.3.4 3.3.4 3.3.4 | r.1 | 3.3.4 3.3.4 3.3.4';
         const score: Score = parseTex(tex);
-        expect(score.tracks[0].staves[0].bars[1].voices[0].beats[0].isFullBarRest).to.be.true;
+        expect(score.tracks[0].staves[0].bars[1].voices[0].beats[0].isFullBarRest).toBe(true);
 
         const expectedNoteOnTimes: number[] = [
             0 * MidiUtils.QuarterTime, // note 1
@@ -1208,7 +1287,7 @@ describe('MidiFileGeneratorTest', () => {
             beat = beat.nextBeat;
         }
 
-        expect(noteOnTimes.join(',')).to.equal(expectedNoteOnTimes.join(','));
+        expect(noteOnTimes.join(',')).toBe(expectedNoteOnTimes.join(','));
 
         const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
         const generator: MidiFileGenerator = new MidiFileGenerator(score, null, handler);
@@ -1221,7 +1300,7 @@ describe('MidiFileGeneratorTest', () => {
                 noteOnTimes.push(evt.tick);
             }
         }
-        expect(noteOnTimes.join(',')).to.equal(expectedNoteOnTimes.join(','));
+        expect(noteOnTimes.join(',')).toBe(expectedNoteOnTimes.join(','));
     });
 
     it('time-signature', () => {
@@ -1241,21 +1320,21 @@ describe('MidiFileGeneratorTest', () => {
             }
         }
 
-        expect(timeSignature).to.be.ok;
+        expect(timeSignature).toBeTruthy();
         const meta: TimeSignatureEvent = timeSignature as TimeSignatureEvent;
         const timeSignatureNumerator: number = meta.numerator;
         const timeSignatureDenominator: number = Math.pow(2, meta.denominatorIndex);
-        expect(timeSignatureNumerator).to.equal(3);
-        expect(timeSignatureDenominator).to.equal(4);
+        expect(timeSignatureNumerator).toBe(3);
+        expect(timeSignatureDenominator).toBe(4);
     });
 
     it('first-bar-tempo', () => {
         const tex: string = '\\tempo 120 . \\tempo 60 3.3*4 | \\tempo 80 3.3*4';
         const score: Score = parseTex(tex);
 
-        expect(score.tempo).to.be.equal(60);
-        expect(score.masterBars[0].tempoAutomations.length).to.equal(1);
-        expect(score.masterBars[0].tempoAutomations[0]!.value).to.be.equal(60);
+        expect(score.tempo).toBe(60);
+        expect(score.masterBars[0].tempoAutomations.length).toBe(1);
+        expect(score.masterBars[0].tempoAutomations[0]!.value).toBe(60);
 
         const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
         const generator: MidiFileGenerator = new MidiFileGenerator(score, null, handler);
@@ -1268,8 +1347,8 @@ describe('MidiFileGeneratorTest', () => {
             }
         }
 
-        expect(tempoChanges.map(t => t.tick).join(',')).to.be.equal('0,3840');
-        expect(tempoChanges.map(t => t.tempo).join(',')).to.be.equal('60,80');
+        expect(tempoChanges.map(t => t.tick).join(',')).toBe('0,3840');
+        expect(tempoChanges.map(t => t.tempo).join(',')).toBe('60,80');
     });
 
     it('has-valid-dynamics', () => {
@@ -1280,12 +1359,12 @@ describe('MidiFileGeneratorTest', () => {
         const note1: Note = score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes[0];
         const note2: Note = score.tracks[0].staves[0].bars[0].voices[0].beats[1].notes[0];
         // First note has already highest dynamics which is increased due to accentuation
-        expect(note1.dynamics).to.be.equal(DynamicValue.FFF);
-        expect(note1.accentuated).to.be.equal(AccentuationType.Normal);
+        expect(note1.dynamics).toBe(DynamicValue.FFF);
+        expect(note1.accentuated).toBe(AccentuationType.Normal);
 
         // Second note has lowest dynamics which is decreased due to ghost note
-        expect(note2.dynamics).to.be.equal(DynamicValue.PPP);
-        expect(note2.isGhost).to.be.true;
+        expect(note2.dynamics).toBe(DynamicValue.PPP);
+        expect(note2.isGhost).toBe(true);
 
         const expectedEvents: FlatMidiEvent[] = [
             // channel init
@@ -1352,10 +1431,10 @@ describe('MidiFileGeneratorTest', () => {
         millisDuration: number
     ) {
         const res = tickLookup.findBeat(new Set<number>([0]), tick);
-        expect(res).to.be.ok;
-        expect(res!.beat.notes[0].fret).to.equal(fret);
-        expect(res!.tickDuration).to.equal(tickDuration);
-        expect(res!.duration).to.equal(millisDuration);
+        expect(res).toBeTruthy();
+        expect(res!.beat.notes[0].fret).toBe(fret);
+        expect(res!.tickDuration).toBe(tickDuration);
+        expect(res!.duration).toBe(millisDuration);
     }
 
     it('beat-tempo-change', async () => {
@@ -1386,8 +1465,8 @@ describe('MidiFileGeneratorTest', () => {
             }
         }
 
-        expect(tempoChanges.map(t => t.tick).join(',')).to.be.equal('0,1920,3840,6288,7680,9120,11520,12960,15120');
-        expect(tempoChanges.map(t => t.tempo).join(',')).to.be.equal('120,60,100,120,121,120,121,120,121');
+        expect(tempoChanges.map(t => t.tick).join(',')).toBe('0,1920,3840,6288,7680,9120,11520,12960,15120');
+        expect(tempoChanges.map(t => t.tempo).join(',')).toBe('120,60,100,120,121,120,121,120,121');
 
         const tickLookup = generator.tickLookup;
 
@@ -1413,8 +1492,8 @@ describe('MidiFileGeneratorTest', () => {
         const tempoChangeTick =
             score.masterBars[1].start +
             score.masterBars[1].calculateDuration() * score.masterBars[1].tempoAutomations[1].ratioPosition;
-        expect(tempoChangeTick - beatStart).to.equal(528);
-        expect(beatEnd - tempoChangeTick).to.equal(432);
+        expect(tempoChangeTick - beatStart).toBe(528);
+        expect(beatEnd - tempoChangeTick).toBe(432);
 
         const firstPartMillis = MidiUtils.ticksToMillis(tempoChangeTick - beatStart, 100);
         const secondPartMillis = MidiUtils.ticksToMillis(beatEnd - tempoChangeTick, 120);
@@ -1762,7 +1841,49 @@ describe('MidiFileGeneratorTest', () => {
 
         const expectedTimers: number[] = [0, 2000, 4000, 6000, 8000, 16000, 26000, 28000, -1];
 
-        expect(actualTimers.join(',')).to.equal(expectedTimers.join(','));
+        expect(actualTimers.join(',')).toBe(expectedTimers.join(','));
+    });
+
+    it('beat-timer-multiple-tracks', () => {
+        const score: Score = parseTex(`
+            \\tempo 120
+            .
+            \\track "T1"
+                3.3.4 { timer } 3.3.4*3 |
+                3.3.4 { timer } 3.3.4*3 |
+                3.3.4 { timer } 3.3.4*3
+            \\track "T2"
+                3.3.4 { timer } 3.3.4*3 |
+                3.3.4 { timer } 3.3.4*3 |
+                3.3.4 { timer } 3.3.4*3
+        `);
+
+        const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
+        const generator: MidiFileGenerator = new MidiFileGenerator(score, null, handler);
+        generator.generate();
+
+        for (const track of score.tracks) {
+            const actualTimers = track.staves[0].bars.map(b => b.voices[0].beats[0].timer ?? -1);
+            expect(actualTimers.join(','), track.name).toBe('0,2000,4000');
+        }
+    });
+
+    it('beat-timer-tempo-change-mid-bar', () => {
+        const score: Score = parseTex(`
+            \\tempo 120
+            .
+                3.3.4 { timer } 3.3.4*3 |
+                3.3.4 { timer } 3.3.4 3.3.4 { tempo 60 } 3.3.4 |
+                3.3.4 { timer } 3.3.4*3
+        `);
+
+        const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
+        const generator: MidiFileGenerator = new MidiFileGenerator(score, null, handler);
+        generator.generate();
+
+        const actualTimers = score.tracks[0].staves[0].bars.map(b => b.voices[0].beats[0].timer ?? -1);
+        // 2 beats at 120bpm (1000ms) + 2 beats at 60bpm (2000ms)
+        expect(actualTimers.join(',')).toBe('0,2000,5000');
     });
 
     it('beat-timer-tempo-changes', () => {
@@ -1785,8 +1906,8 @@ describe('MidiFileGeneratorTest', () => {
         // no timers at start
         let b: Beat | null = score.tracks[0].staves[0].bars[0].voices[0].beats[0];
         while (b !== null) {
-            expect(b.showTimer).to.be.true;
-            expect(b.timer).to.equal(null);
+            expect(b.showTimer).toBe(true);
+            expect(b.timer).toBe(null);
             b = b.nextBeat;
         }
 
@@ -1809,7 +1930,87 @@ describe('MidiFileGeneratorTest', () => {
             2000, 3000, 3500, 3625, 3875
         ];
 
-        expect(actualTimers.join(',')).to.equal(expectedTimers.join(','));
+        expect(actualTimers.join(',')).toBe(expectedTimers.join(','));
+    });
+
+    describe('metronome', () => {
+        function testMetronome(tex: string, expectedClicks: string) {
+            const score: Score = parseTex(tex);
+            const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
+            const generator: MidiFileGenerator = new MidiFileGenerator(score, null, handler);
+            generator.generate();
+            const actualClicks = handler.metronomeEvents.map(e => `${e.tick}:${e.counter}`).join(' ');
+            expect(actualClicks).toBe(expectedClicks);
+        }
+
+        it('regular', () => {
+            testMetronome('\\ts 3 4 3.3.4*3 | 3.3.4*3', '0:0 960:1 1920:2 2880:0 3840:1 4800:2');
+        });
+
+        it('time-signature-change', () => {
+            testMetronome(
+                '\\ts 7 8 3.3.8*7 | \\ts 4 4 3.3.1',
+                '0:0 480:1 960:2 1440:3 1920:4 2400:5 2880:6 3360:0 4320:1 5280:2 6240:3'
+            );
+        });
+
+        it('anacrusis', () => {
+            // 3/8 pick-up in 2/4: the pick-up starts on the offbeat of beat 1
+            testMetronome('\\ts 2 4 \\ac 3.3.8*3 | 3.3.2 | 3.3.2', '480:1 1440:0 2400:1 3360:0 4320:1');
+        });
+
+        it('anacrusis-full-beats', () => {
+            testMetronome('\\ts 4 4 \\ac 3.3.4 | 3.3.1', '0:3 960:0 1920:1 2880:2 3840:3');
+        });
+
+        it('anacrusis-repeat', () => {
+            testMetronome(
+                '\\ts 2 4 \\ac 3.3.8*3 | \\ro 3.3.2 | \\rc 2 3.3.2',
+                '480:1 1440:0 2400:1 3360:0 4320:1 5280:0 6240:1 7200:0 8160:1'
+            );
+        });
+    });
+
+    it('anacrusis-tempo-automation', () => {
+        // automation positions are relative to the full time signature (like in Guitar Pro)
+        const score: Score = parseTex('\\ts 2 4 \\ac 3.3.8 3.3.8 3.3.8 { tempo 60 } | 3.3.2');
+        expect(score.masterBars[0].tempoAutomations.map(a => a.ratioPosition).join(',')).toBe('0.5');
+
+        const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
+        const generator: MidiFileGenerator = new MidiFileGenerator(score, null, handler);
+        generator.generate();
+
+        const tempoChanges: string[] = [];
+        for (const e of handler.midiEvents) {
+            if (e instanceof FlatTempoEvent) {
+                tempoChanges.push(`${e.tick}:${e.tempo}`);
+            }
+        }
+        expect(tempoChanges.join(' ')).toBe('960:60');
+    });
+
+    it('multi-track-format-events', () => {
+        const score: Score = parseTex('\\track "T1" 3.3.4*4 | 3.3.1 \\track "T2" 3.4.2*2 | 3.4.1');
+        const midi = new MidiFile();
+        midi.format = MidiFileFormat.MultiTrack;
+        const generator: MidiFileGenerator = new MidiFileGenerator(score, null, new AlphaSynthMidiFileHandler(midi));
+        generator.generate();
+
+        expect(midi.tracks.length).toBe(2);
+        const events = midi.events;
+        expect(events.length).toBe(midi.tracks[0].events.length + midi.tracks[1].events.length);
+
+        // sorted by tick and keeping the order within each track
+        const positions: number[] = [0, 0];
+        let previousTick = 0;
+        for (const e of events) {
+            expect(e.tick).toBeGreaterThanOrEqual(previousTick);
+            previousTick = e.tick;
+            const track =
+                positions[0] < midi.tracks[0].events.length && midi.tracks[0].events[positions[0]] === e ? 0 : 1;
+            expect(midi.tracks[track].events[positions[track]]).toBe(e);
+            positions[track]++;
+        }
     });
 
     it('transpose', () => {
@@ -1823,36 +2024,36 @@ describe('MidiFileGeneratorTest', () => {
                 \\transpose 12
                     r.1 | r.1 | C4.4
         `);
-        expect(score.tracks[0].staves[0].displayTranspositionPitch).to.equal(0);
-        expect(score.tracks[0].staves[0].transpositionPitch).to.equal(0);
+        expect(score.tracks[0].staves[0].displayTranspositionPitch).toBe(0);
+        expect(score.tracks[0].staves[0].transpositionPitch).toBe(0);
 
-        expect(score.tracks[1].staves[0].displayTranspositionPitch).to.equal(-12);
-        expect(score.tracks[1].staves[0].transpositionPitch).to.equal(0);
+        expect(score.tracks[1].staves[0].displayTranspositionPitch).toBe(-12);
+        expect(score.tracks[1].staves[0].transpositionPitch).toBe(0);
 
-        expect(score.tracks[2].staves[0].displayTranspositionPitch).to.equal(0);
-        expect(score.tracks[2].staves[0].transpositionPitch).to.equal(-12);
+        expect(score.tracks[2].staves[0].displayTranspositionPitch).toBe(0);
+        expect(score.tracks[2].staves[0].transpositionPitch).toBe(-12);
 
         const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
         const generator: MidiFileGenerator = new MidiFileGenerator(score, null, handler);
         generator.generate();
 
-        expect(generator.transpositionPitches.has(0)).to.be.true;
-        expect(generator.transpositionPitches.get(0)!).to.equal(0);
+        expect(generator.transpositionPitches.has(0)).toBe(true);
+        expect(generator.transpositionPitches.get(0)!).toBeCloseTo(0);
 
-        expect(generator.transpositionPitches.has(1)).to.be.true;
-        expect(generator.transpositionPitches.get(1)!).to.equal(0);
+        expect(generator.transpositionPitches.has(1)).toBe(true);
+        expect(generator.transpositionPitches.get(1)!).toBeCloseTo(0);
 
-        expect(generator.transpositionPitches.has(2)).to.be.true;
-        expect(generator.transpositionPitches.get(2)!).to.equal(0);
+        expect(generator.transpositionPitches.has(2)).toBe(true);
+        expect(generator.transpositionPitches.get(2)!).toBeCloseTo(0);
 
-        expect(generator.transpositionPitches.has(3)).to.be.true;
-        expect(generator.transpositionPitches.get(3)!).to.equal(0);
+        expect(generator.transpositionPitches.has(3)).toBe(true);
+        expect(generator.transpositionPitches.get(3)!).toBeCloseTo(0);
 
-        expect(generator.transpositionPitches.has(4)).to.be.true;
-        expect(generator.transpositionPitches.get(4)!).to.equal(12);
+        expect(generator.transpositionPitches.has(4)).toBe(true);
+        expect(generator.transpositionPitches.get(4)!).toBe(12);
 
-        expect(generator.transpositionPitches.has(5)).to.be.true;
-        expect(generator.transpositionPitches.get(5)!).to.equal(12);
+        expect(generator.transpositionPitches.has(5)).toBe(true);
+        expect(generator.transpositionPitches.get(5)!).toBe(12);
     });
 
     it('tickshift-flat', () => {
@@ -1864,9 +2065,9 @@ describe('MidiFileGeneratorTest', () => {
         const generator = new MidiFileGenerator(score, null, handler);
         generator.generate();
 
-        expect(handler.tickShift).to.equal(120);
+        expect(handler.tickShift).toBe(120);
         const firstNote = handler.midiEvents.find(e => e instanceof FlatNoteEvent) as FlatNoteEvent;
-        expect(firstNote.tick).to.equal(-120);
+        expect(firstNote.tick).toBe(-120);
     });
 
     it('tickshift-synth', () => {
@@ -1879,9 +2080,9 @@ describe('MidiFileGeneratorTest', () => {
         const generator = new MidiFileGenerator(score, null, handler);
         generator.generate();
 
-        expect(handler.tickShift).to.equal(120);
+        expect(handler.tickShift).toBe(120);
         const firstNote = file.events.find(e => e instanceof NoteOnEvent) as NoteOnEvent;
-        expect(firstNote.tick).to.equal(0);
+        expect(firstNote.tick).toBe(0);
     });
 
     it('synthwrapper-mapping', () => {
@@ -1908,24 +2109,24 @@ describe('MidiFileGeneratorTest', () => {
 
         // check API -> Player mappings
         wrapper.tickPosition = -120;
-        expect(synth.tickPosition).to.equal(tickImprecision);
+        expect(synth.tickPosition).toBe(tickImprecision);
 
         wrapper.tickPosition = 0;
-        expect(synth.tickPosition).to.equal(120 + tickImprecision);
+        expect(synth.tickPosition).toBe(120 + tickImprecision);
 
         const range = new PlaybackRange();
         range.startTick = 960;
         range.endTick = 1920;
         wrapper.playbackRange = range;
-        expect(synth.playbackRange!.startTick).to.equal(range.startTick + handler.tickShift);
-        expect(synth.playbackRange!.endTick).to.equal(range.endTick + handler.tickShift);
+        expect(synth.playbackRange!.startTick).toBe(range.startTick + handler.tickShift);
+        expect(synth.playbackRange!.endTick).toBe(range.endTick + handler.tickShift);
 
         // check API <- Player mappings
         wrapper.stop();
-        expect(wrapper.tickPosition).to.equal(range.startTick + tickImprecision);
-        expect(wrapper.loadedMidiInfo!.endTick).to.equal(3840);
-        expect(wrapper.playbackRange!.startTick).to.equal(range.startTick);
-        expect(wrapper.playbackRange!.endTick).to.equal(range.endTick);
+        expect(wrapper.tickPosition).toBe(range.startTick + tickImprecision);
+        expect(wrapper.loadedMidiInfo!.endTick).toBe(3840);
+        expect(wrapper.playbackRange!.startTick).toBe(range.startTick);
+        expect(wrapper.playbackRange!.endTick).toBe(range.endTick);
 
         wrapper.playbackRange = null;
         let lastArgs: PositionChangedEventArgs | null = null;
@@ -1933,8 +2134,8 @@ describe('MidiFileGeneratorTest', () => {
             lastArgs = e;
         });
         wrapper.tickPosition = 0;
-        expect(lastArgs!.currentTick).to.equal(tickImprecision);
-        expect(synth.tickPosition).to.equal(handler.tickShift + tickImprecision);
+        expect(lastArgs!.currentTick).toBe(tickImprecision);
+        expect(synth.tickPosition).toBe(handler.tickShift + tickImprecision);
     });
 
     describe('effect-note-durations', () => {

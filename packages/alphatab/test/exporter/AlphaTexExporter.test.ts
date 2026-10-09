@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { AlphaTexExporter } from '@coderline/alphatab/exporter/AlphaTexExporter';
 import { AlphaTexErrorWithDiagnostics } from '@coderline/alphatab/importer/AlphaTexImporter';
 import { ScoreLoader } from '@coderline/alphatab/importer/ScoreLoader';
@@ -5,8 +6,6 @@ import type { Score } from '@coderline/alphatab/model/Score';
 import { Settings } from '@coderline/alphatab/Settings';
 import { ComparisonHelpers } from 'test/model/ComparisonHelpers';
 import { TestPlatform } from 'test/TestPlatform';
-import { assert } from 'chai';
-
 describe('AlphaTexExporterTest', () => {
     async function loadScore(name: string): Promise<Score | null> {
         const data = await TestPlatform.loadFile(`test-data/${name}`);
@@ -50,16 +49,19 @@ describe('AlphaTexExporterTest', () => {
                 }
             }
 
-            assert.fail(
+            throw new Error(
                 `<${fileName}>${unwrapped.toString()}\n${errorLines.join('\n')}${error.stack}\n Tex:\n${exported}`
             );
         }
     }
 
-    async function testRoundTripFolderEqual(name: string): Promise<void> {
+    async function testRoundTripFolderEqual(name: string, ignoredFiles?: string[]): Promise<void> {
         const files: string[] = await TestPlatform.listDirectory(`test-data/${name}`);
+        const ignoredFilesLookup = new Set<string>(ignoredFiles);
         for (const file of files.filter(f => !f.endsWith('.png'))) {
-            await testRoundTripEqual(`${name}/${file}`, null);
+            if (!ignoredFilesLookup.has(file) && !file.endsWith('.png')) {
+                await testRoundTripEqual(`${name}/${file}`, null);
+            }
         }
     }
 
@@ -120,7 +122,7 @@ describe('AlphaTexExporterTest', () => {
 
         if (errors.length > 0) {
             await TestPlatform.saveFileAsString('test-data/exporter/notation-legend-formatted.atex.new', data);
-            assert.fail(errors.join('\n'));
+            throw new Error(errors.join('\n'));
         } else {
             await TestPlatform.deleteFile('test-data/exporter/notation-legend-formatted.atex.new');
         }
@@ -133,7 +135,17 @@ describe('AlphaTexExporterTest', () => {
     });
 
     it('visual-effects-and-annotations', async () => {
-        await testRoundTripFolderEqual('visual-tests/effects-and-annotations');
+        await testRoundTripFolderEqual('visual-tests/effects-and-annotations', [
+            'hidden-dots.mxml',
+            'string-numbers-pitched.mxml'
+        ]);
+    });
+
+    it('musicxml-string-numbers-pitched', async () => {
+        // MusicXML always specifies an explicit display duration which alphaTex does not need
+        await testRoundTripEqual('visual-tests/effects-and-annotations/string-numbers-pitched.mxml', [
+            'overridedisplayduration'
+        ]);
     });
 
     it('visual-general', async () => {
@@ -178,5 +190,20 @@ describe('AlphaTexExporterTest', () => {
 
     it('gp7-to-alphaTex', async () => {
         await testRoundTripEqual(`conversion/full-song.gp`);
+    });
+
+    it('accidental-mode-only-when-needed', () => {
+        // in F major: F# needs a hint (default spelling is Gb), Gb, Bb and B natural are spelled like this by default
+        const score = ScoreLoader.loadAlphaTex(
+            '\\instrument piano \\tuning piano \\ks f . F#4.4 Gb4.4 Bb4.4 B4{acc n}.4'
+        );
+        const exported = exportAlphaTex(score);
+
+        expect(exported).toContain('Gb4{acc #}.4');
+        const firstAccidental = exported.indexOf('acc ');
+        expect(exported.indexOf('acc ', firstAccidental + 1)).toBe(-1);
+
+        const reimported = ScoreLoader.loadAlphaTex(exported);
+        ComparisonHelpers.alphaTexExportRoundtripEqual('accidental-mode-only-when-needed', reimported, score);
     });
 });

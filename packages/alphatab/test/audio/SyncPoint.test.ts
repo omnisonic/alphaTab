@@ -1,6 +1,8 @@
+import { describe, expect, it } from 'vitest';
 import { type IEventEmitterOfT, type IEventEmitter, EventEmitterOfT, EventEmitter } from '@coderline/alphatab/EventEmitter';
 import { ScoreLoader } from '@coderline/alphatab/importer/ScoreLoader';
 import { AlphaSynthMidiFileHandler } from '@coderline/alphatab/midi/AlphaSynthMidiFileHandler';
+import type { AlphaTabMetronomeEvent } from '@coderline/alphatab/midi/MidiEvent';
 import { MidiFile } from '@coderline/alphatab/midi/MidiFile';
 import { MidiFileGenerator } from '@coderline/alphatab/midi/MidiFileGenerator';
 import type { BackingTrack } from '@coderline/alphatab/model/BackingTrack';
@@ -19,7 +21,6 @@ import type { Hydra } from '@coderline/alphatab/synth/soundfont/Hydra';
 import type { SynthEvent } from '@coderline/alphatab/synth/synthesis/SynthEvent';
 import { FlatMidiEventGenerator } from 'test/audio/FlatMidiEventGenerator';
 import { TestPlatform } from 'test/TestPlatform';
-import { expect } from 'chai';
 
 describe('SyncPointTests', () => {
     it('sync-point-update', async () => {
@@ -63,24 +64,24 @@ describe('SyncPointTests', () => {
         sequencer.loadMidi(midi);
 
         sequencer.currentUpdateCurrentTempo(0);
-        expect(sequencer.currentTempo).to.equal(90);
-        expect(sequencer.modifiedTempo).to.equal(90);
+        expect(sequencer.currentTempo).toBe(90);
+        expect(sequencer.modifiedTempo).toBe(90);
 
         sequencer.currentUpdateCurrentTempo(1000);
-        expect(sequencer.currentTempo).to.equal(90);
-        expect(sequencer.modifiedTempo).to.equal(90);
+        expect(sequencer.currentTempo).toBe(90);
+        expect(sequencer.modifiedTempo).toBe(90);
 
         sequencer.currentUpdateCurrentTempo(2000);
-        expect(sequencer.currentTempo).to.equal(90);
-        expect(sequencer.modifiedTempo).to.equal(90);
+        expect(sequencer.currentTempo).toBe(90);
+        expect(sequencer.modifiedTempo).toBe(90);
 
         sequencer.currentUpdateCurrentTempo(3000);
-        expect(sequencer.currentTempo).to.equal(120);
-        expect(sequencer.modifiedTempo).to.equal(120);
+        expect(sequencer.currentTempo).toBe(120);
+        expect(sequencer.modifiedTempo).toBe(120);
 
         sequencer.currentUpdateCurrentTempo(4000);
-        expect(sequencer.currentTempo).to.equal(120);
-        expect(sequencer.modifiedTempo).to.equal(120);
+        expect(sequencer.currentTempo).toBe(120);
+        expect(sequencer.modifiedTempo).toBe(120);
     });
 
     async function syncPointTestScore() {
@@ -112,15 +113,15 @@ describe('SyncPointTests', () => {
 
         const update = MidiFileGenerator.generateSyncPoints(score);
 
-        expect(generator.syncPoints.length).to.equal(update.length);
+        expect(generator.syncPoints.length).toBe(update.length);
         for (let i = 0; i < generator.syncPoints.length; i++) {
-            expect(update[i].masterBarIndex).to.equal(generator.syncPoints[i].masterBarIndex);
-            expect(update[i].masterBarOccurence).to.equal(generator.syncPoints[i].masterBarOccurence);
-            expect(update[i].syncBpm).to.equal(generator.syncPoints[i].syncBpm);
-            expect(update[i].syncTime).to.equal(generator.syncPoints[i].syncTime);
-            expect(update[i].synthBpm).to.equal(generator.syncPoints[i].synthBpm);
-            expect(update[i].synthTick).to.equal(generator.syncPoints[i].synthTick);
-            expect(update[i].synthTime).to.equal(generator.syncPoints[i].synthTime);
+            expect(update[i].masterBarIndex).toBe(generator.syncPoints[i].masterBarIndex);
+            expect(update[i].masterBarOccurence).toBe(generator.syncPoints[i].masterBarOccurence);
+            expect(update[i].syncBpm).toBe(generator.syncPoints[i].syncBpm);
+            expect(update[i].syncTime).toBe(generator.syncPoints[i].syncTime);
+            expect(update[i].synthBpm).toBe(generator.syncPoints[i].synthBpm);
+            expect(update[i].synthTick).toBe(generator.syncPoints[i].synthTick);
+            expect(update[i].synthTime).toBe(generator.syncPoints[i].synthTime);
         }
     });
 
@@ -358,6 +359,45 @@ describe('SyncPointTests', () => {
     });
 });
 
+describe('MidiFileSequencerCountInTests', () => {
+    function testCountIn(tex: string, startTime: number, expectedClicks: string, expectedEndTime: number) {
+        const score = ScoreLoader.loadAlphaTex(tex);
+        const midi = new MidiFile();
+        new MidiFileGenerator(score, new Settings(), new AlphaSynthMidiFileHandler(midi)).generate();
+
+        const synthesizer = new RecordingAudioSynthesizer();
+        const sequencer = new MidiFileSequencer(synthesizer);
+        sequencer.loadMidi(midi);
+        sequencer.mainSeek(startTime);
+
+        synthesizer.events = [];
+        sequencer.startCountIn();
+        while (!sequencer.isFinished) {
+            sequencer.fillMidiEventQueue();
+        }
+
+        const actualClicks = synthesizer.events
+            .filter(e => e.isMetronome)
+            .map(e => `${Math.round(e.time)}:${(e.event as AlphaTabMetronomeEvent).metronomeNumerator}`);
+        expect(actualClicks.join(' ')).toBe(expectedClicks);
+        expect(Math.round(sequencer.currentEndTime)).toBe(expectedEndTime);
+    }
+
+    it('bar-start', () => {
+        testCountIn('\\tempo 120 . \\ts 4 4 C4.4*4 | C4.1', 0, '0:0 500:1 1000:2 1500:3', 2000);
+    });
+
+    it('anacrusis', () => {
+        // one full bar, then the counting continues until the pick-up enters on the offbeat of beat 1
+        testCountIn('\\tempo 120 . \\ts 2 4 \\ac C4.8*3 | C4.2', 0, '0:0 500:1 1000:0', 1250);
+    });
+
+    it('mid-bar', () => {
+        // start on beat 3: one full bar, then beats 1 and 2
+        testCountIn('\\tempo 120 . \\ts 4 4 C4.4*4 | C4.1', 1000, '0:0 500:1 1000:2 1500:3 2000:0 2500:1', 3000);
+    });
+});
+
 /**
  * @internal
  */
@@ -464,7 +504,7 @@ class EmptyAudioSynthesizer implements IAudioSampleSynthesizer {
         _percussionKeys: Set<number>,
         _append: boolean
     ): void {}
-    public setupMetronomeChannel(_metronomeVolume: number): void {}
+    public setupMetronomeChannel(_metronomeChannel: number, _metronomeVolume: number): void {}
     public synthesizeSilent(_sampleCount: number): void {}
     public dispatchEvent(_synthEvent: SynthEvent): void {}
     public synthesize(_buffer: Float32Array, _bufferPos: number, _ampleCount: number): SynthEvent[] {
@@ -481,5 +521,15 @@ class EmptyAudioSynthesizer implements IAudioSampleSynthesizer {
     }
     public hasSamplesForPercussion(_key: number): boolean {
         return true;
+    }
+}
+
+/**
+ * @internal
+ */
+class RecordingAudioSynthesizer extends EmptyAudioSynthesizer {
+    public events: SynthEvent[] = [];
+    public override dispatchEvent(synthEvent: SynthEvent): void {
+        this.events.push(synthEvent);
     }
 }

@@ -10,6 +10,7 @@ import type { NoteXPosition, NoteYPosition } from '@coderline/alphatab/rendering
 import { BeatXPosition } from '@coderline/alphatab/rendering/BeatXPosition';
 import type { BeatContainerGlyphBase } from '@coderline/alphatab/rendering/glyphs/BeatContainerGlyph';
 import { Glyph } from '@coderline/alphatab/rendering/glyphs/Glyph';
+import { StaffSide } from '@coderline/alphatab/rendering/skyline/BarLocalSkyline';
 import type { BarLayoutingInfo } from '@coderline/alphatab/rendering/staves/BarLayoutingInfo';
 import type { BarBounds } from '@coderline/alphatab/rendering/utils/BarBounds';
 import { ElementStyleHelper } from '@coderline/alphatab/rendering/utils/ElementStyleHelper';
@@ -53,13 +54,55 @@ export class MultiVoiceContainerGlyph extends Glyph {
         return y;
     }
 
+    /** Positions every beat container and emits its per-beat skyline contribution. */
     public scaleToWidth(width: number): void {
         const force: number = this.renderer.layoutingInfo.spaceToForce(width);
-        this._scaleToForce(force);
+        this._scaleToForce(force, true);
     }
 
-    private _scaleToForce(force: number): void {
+    /**
+     * `true` when every voice/track/staff contributes exactly one beat, of uniform duration,
+     * spanning the bar's entire duration - i.e. a single full-bar note/rest. Common engraving
+     * practice centers such notes horizontally within the bar rather than anchoring them right
+     * after the pre-beat content (Behind Bars, p. 41; see #2464).
+     */
+    private _isCenteredFullBar(): boolean {
+        // single spring which starts at start and spans the whole bar?
+        // also ensure we do not have any grace notes
+        const masterBar = this.renderer.bar.masterBar;
+        const layoutingInfo = this.renderer.layoutingInfo;
+        const springs = layoutingInfo.springs;
+        if (springs.size !== 1 || !springs.has(masterBar.start) || layoutingInfo.allGraceRods.size > 0) {
+            return false;
+        }
+
+        const spring = springs.get(masterBar.start)!;
+        return spring.allDurations.size === 1 && spring.longestDuration === masterBar.calculateDuration();
+    }
+
+    /** `emit=false`: positioning-only path; final skyline emission runs later via {@link scaleToWidth}. */
+    private _scaleToForce(force: number, emit: boolean): void {
         this.width = this.renderer.layoutingInfo.calculateVoiceWidth(force);
+
+        if (this._isCenteredFullBar()) {
+            // Sole full-bar beat: keep x=0/width=full-bar so bounds lookups, hit-testing and
+            // skyline emission still span the whole bar, and shift only the ink via
+            // applyCenterOffset instead of moving the container itself (which would leave the
+            // bar's left portion outside this beat's bounds).
+
+            const target = this.width / 2;
+            for (const beatGlyphs of this.beatGlyphs.values()) {
+                const soleBeatGlyph = beatGlyphs[0];
+                soleBeatGlyph.x = 0;
+                soleBeatGlyph.applyCenterOffset(target);
+                soleBeatGlyph.scaleToWidth(this.width);
+                if (emit) {
+                    this._emitBeatContainerSkyline(soleBeatGlyph);
+                }
+            }
+            return;
+        }
+
         const positions = this.renderer.layoutingInfo.buildOnTimePositions(force);
         for (const beatGlyphs of this.beatGlyphs.values()) {
             for (let i: number = 0, j: number = beatGlyphs.length; i < j; i++) {
@@ -108,9 +151,21 @@ export class MultiVoiceContainerGlyph extends Glyph {
 
                             if (i > 0) {
                                 if (currentBeatGlyph.graceIndex === 0) {
-                                    // we place the grace beat directly after the previous one
-                                    // otherwise this causes flickers on resizing
-                                    currentBeatGlyph.x = beatGlyphs[i - 1].x + beatGlyphs[i - 1].width;
+                                    // we place the grace beat directly after the content of the previous one
+                                    // (its on-time position plus the post-beat size the spacing reserves for it).
+                                    // the previous beat width is not used as it is resized to this gap below
+                                    // which would cause flickers on resizing
+                                    const previous = beatGlyphs[i - 1];
+                                    const previousSpring = this.renderer.layoutingInfo.springs.get(
+                                        previous.absoluteDisplayStart
+                                    );
+                                    currentBeatGlyph.x =
+                                        previous.graceType === GraceType.None && previousSpring
+                                            ? previous.x +
+                                              previous.onTimeX +
+                                              previousSpring.postSpringWidth +
+                                              this.renderer.layoutingInfo.beatContentPadding
+                                            : previous.x + previous.width;
                                 } else {
                                     // for the multiple grace glyphs we take the width of the grace rod
                                     // this width setting is aligned with the positioning logic below
@@ -130,16 +185,68 @@ export class MultiVoiceContainerGlyph extends Glyph {
                 // size always previous glyph after we know the position
                 // of the next glyph
                 if (i > 0) {
-                    const beatWidth: number = currentBeatGlyph.x - beatGlyphs[i - 1].x;
-                    beatGlyphs[i - 1].scaleToWidth(beatWidth);
+                    const previous = beatGlyphs[i - 1];
+                    const beatWidth: number = currentBeatGlyph.x - previous.x;
+                    previous.scaleToWidth(beatWidth);
+                    if (emit) {
+                        this._emitBeatContainerSkyline(previous);
+                    }
                 }
                 // for the last glyph size based on the full width
                 if (i === j - 1) {
                     const beatWidth: number = this.width - beatGlyphs[beatGlyphs.length - 1].x;
                     currentBeatGlyph.scaleToWidth(beatWidth);
+                    if (emit) {
+                        this._emitBeatContainerSkyline(currentBeatGlyph);
+                    }
                 }
             }
         }
+    }
+
+    private _emitBeatContainerSkyline(beatContainer: BeatContainerGlyphBase): void {
+        const renderer = this.renderer;
+        const rendererBottom = renderer.height;
+        const base = this.x + beatContainer.x;
+        const containerTop = beatContainer.getBoundingBoxTop();
+        const containerBottom = beatContainer.getBoundingBoxBottom();
+        const topOver = !Number.isNaN(containerTop) && containerTop < 0;
+        const botOver = !Number.isNaN(containerBottom) && containerBottom > rendererBottom;
+
+        // Lazy getter hoisted once per beat; per-emit guards inlined to skip the wrapper.
+        const sky = renderer.barLocalSkyline;
+
+        // Notehead extent (PreNotes..PostNotes), not slot width (which includes spring spacing).
+        if (topOver || botOver) {
+            const xStart = base + beatContainer.getBeatX(BeatXPosition.PreNotes, false);
+            const xEnd = base + beatContainer.getBeatX(BeatXPosition.PostNotes, false);
+            if (xEnd > xStart) {
+                if (topOver) {
+                    sky.insertPlaced(StaffSide.Top, xStart, xEnd, containerTop * -1, 0);
+                }
+                if (botOver) {
+                    sky.insertPlaced(StaffSide.Bottom, xStart, xEnd, containerBottom - rendererBottom, 0);
+                }
+            }
+        }
+
+        const pending = beatContainer.pendingEffectOverflows;
+        if (pending.length > 0) {
+            const pendingXStart = base;
+            const pendingXEnd = base + beatContainer.width;
+            if (pendingXEnd > pendingXStart) {
+                for (const r of pending) {
+                    if (r.minY < 0) {
+                        sky.insertPlaced(StaffSide.Top, pendingXStart, pendingXEnd, r.minY * -1, 0);
+                    }
+                    if (r.maxY > rendererBottom) {
+                        sky.insertPlaced(StaffSide.Bottom, pendingXStart, pendingXEnd, r.maxY - rendererBottom, 0);
+                    }
+                }
+            }
+        }
+
+        renderer.emitBeatSkyline(beatContainer);
     }
 
     public registerLayoutingInfo(info: BarLayoutingInfo): void {
@@ -155,8 +262,8 @@ export class MultiVoiceContainerGlyph extends Glyph {
             for (const b of beatGlyphs) {
                 b.applyLayoutingInfo(info);
             }
-            this._scaleToForce(Math.max(this.renderer.settings.display.stretchForce, info.minStretchForce));
         }
+        this._scaleToForce(Math.max(this.renderer.settings.display.stretchForce, info.minStretchForce), false);
     }
 
     public addGlyph(bg: BeatContainerGlyphBase): void {
@@ -269,6 +376,7 @@ export class MultiVoiceContainerGlyph extends Glyph {
         for (const v of this.beatGlyphs.values()) {
             let x = 0;
             for (const b of v) {
+                b.prepareForOverflowPass();
                 b.x = x;
                 b.doLayout();
                 x += b.width;
@@ -305,7 +413,7 @@ export class MultiVoiceContainerGlyph extends Glyph {
 
     public override paint(cx: number, cy: number, canvas: ICanvas): void {
         // canvas.color = Color.random();
-        // canvas.strokeRect(cx + this.x, cy + this.y, this.width, this.renderer.height);
+        // canvas.fillRect(cx + this.x, cy + this.y, this.width, this.renderer.height);
         for (const v of this.voiceDrawOrder!) {
             const beatGlyphs = this.beatGlyphs.get(v)!;
             const voice = this.renderer.bar.voices[v];

@@ -1,5 +1,6 @@
 import { Logger } from '@coderline/alphatab/Logger';
 import { AccentuationType } from '@coderline/alphatab/model/AccentuationType';
+import { AccidentalHelper } from '@coderline/alphatab/rendering/utils/AccidentalHelper';
 import { BeatSubElement } from '@coderline/alphatab/model/Beat';
 import { Duration } from '@coderline/alphatab/model/Duration';
 import { GraceType } from '@coderline/alphatab/model/GraceType';
@@ -112,24 +113,7 @@ export class ScoreBeatGlyph extends BeatOnNoteGlyphBase {
     }
 
     public override getRestY(requestedPosition: NoteYPosition): number {
-        const g = this.restGlyph;
-        if (g) {
-            switch (requestedPosition) {
-                case NoteYPosition.TopWithStem:
-                    return g.getBoundingBoxTop() - this.renderer.smuflMetrics.getStemLength(Duration.Quarter, true);
-                case NoteYPosition.Top:
-                    return g.getBoundingBoxTop();
-                case NoteYPosition.Center:
-                case NoteYPosition.StemUp:
-                case NoteYPosition.StemDown:
-                    return g.getBoundingBoxTop() + g.height / 2;
-                case NoteYPosition.Bottom:
-                    return g.getBoundingBoxBottom();
-                case NoteYPosition.BottomWithStem:
-                    return g.getBoundingBoxBottom() + this.renderer.smuflMetrics.getStemLength(Duration.Quarter, true);
-            }
-        }
-        return 0;
+        return this.getRestGlyphY(this.restGlyph, requestedPosition);
     }
 
     public applyRestCollisionOffset() {
@@ -263,12 +247,14 @@ export class ScoreBeatGlyph extends BeatOnNoteGlyphBase {
                 const group: GlyphGroup = new GlyphGroup(0, 0);
                 group.renderer = this.renderer;
                 for (const note of this.container.beat.notes) {
-                    const g = this._createBeatDot(sr.getNoteSteps(note), group);
-                    g.colorOverride = ElementStyleHelper.noteColor(
-                        sr.resources,
-                        NoteSubElement.StandardNotationEffects,
-                        note
-                    );
+                    if (note.isVisible) {
+                        const g = this._createBeatDot(sr.getNoteSteps(note), group);
+                        g.colorOverride = ElementStyleHelper.noteColor(
+                            sr.resources,
+                            NoteSubElement.StandardNotationEffects,
+                            note
+                        );
+                    }
                 }
                 this.addEffect(group);
             }
@@ -298,18 +284,23 @@ export class ScoreBeatGlyph extends BeatOnNoteGlyphBase {
 
     private _createRestGlyphs() {
         const sr = this.renderer as ScoreBarRenderer;
+        const beat = this.container.beat;
+        const lineCount = this.renderer.bar.staff.standardNotationLineCount;
 
-        let steps = Math.ceil((this.renderer.bar.staff.standardNotationLineCount - 1) / 2) * 2;
-
-        // this positioning is quite strange, for most staff line counts
-        // the whole/rest are aligned as half below the whole rest.
-        // but for staff line count 1 and 3 they are aligned centered on the same line.
-        if (
-            this.container.beat.duration === Duration.Whole &&
-            this.renderer.bar.staff.standardNotationLineCount !== 1 &&
-            this.renderer.bar.staff.standardNotationLineCount !== 3
-        ) {
-            steps -= 2;
+        let steps: number;
+        if (!Number.isNaN(beat.restDisplayTone) && !Number.isNaN(beat.restDisplayOctave)) {
+            // Per-beat override: same step as a note at that pitch. SMuFL rest glyphs use the same
+            // baseline convention as note heads, so no further adjustment is applied.
+            steps = AccidentalHelper.calculateRestDisplaySteps(sr.bar, beat.restDisplayTone, beat.restDisplayOctave);
+        } else {
+            // Default placement: centred on the staff. Whole rests sit one line above (per SMuFL/Guitar Pro
+            // convention) so their hanging body lines up with where half/shorter rest bodies appear.
+            // 1- and 3-line staves keep the whole rest on the default rest line (Guitar Pro convention;
+            // see musescore/MuseScore#25279).
+            steps = Math.ceil((lineCount - 1) / 2) * 2;
+            if (beat.duration === Duration.Whole && lineCount !== 1 && lineCount !== 3) {
+                steps -= 2;
+            }
         }
 
         const restGlyph = new ScoreRestGlyph(0, sr.getScoreY(steps), this.container.beat.duration);
@@ -431,7 +422,7 @@ export class ScoreBeatGlyph extends BeatOnNoteGlyphBase {
         if (n.accentuated === AccentuationType.Tenuto && !belowBeatEffects.has('Tenuto')) {
             outsideBeatEffects.set('Tenuto', new AccentuationGlyph(0, 0, n));
         }
-        if (n.showStringNumber && n.isStringed) {
+        if (n.showStringNumber && !Number.isNaN(n.string)) {
             let container: StringNumberContainerGlyph;
             if (!aboveBeatEffects.has('StringNumber')) {
                 container = new StringNumberContainerGlyph(0, 0);

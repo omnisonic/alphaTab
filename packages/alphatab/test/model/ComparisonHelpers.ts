@@ -2,8 +2,6 @@ import { JsonConverter } from '@coderline/alphatab/model/JsonConverter';
 import { ModelUtils } from '@coderline/alphatab/model/ModelUtils';
 import type { Score } from '@coderline/alphatab/model/Score';
 import { TestPlatform } from 'test/TestPlatform';
-import { assert } from 'chai';
-
 /**
  * @partial
  * @internal
@@ -50,6 +48,30 @@ export class ComparisonHelpers {
         }
     }
 
+    /**
+     * Accidental modes are spelling hints, formats store them differently (e.g. Guitar Pro always stores the spelling).
+     * This reduces them to the hints which matter for the rendering to compare them across formats.
+     */
+    public static simplifyAccidentalModes(score: Score) {
+        for (const track of score.tracks) {
+            for (const staff of track.staves) {
+                for (const bar of staff.bars) {
+                    for (const voice of bar.voices) {
+                        for (const beat of voice.beats) {
+                            for (const note of beat.notes) {
+                                note.accidentalMode = ModelUtils.simplifyAccidentalMode(
+                                    bar.keySignature,
+                                    note.displayValue,
+                                    note.accidentalMode
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     public static alphaTexExportRoundtripPrepare(expected: Score) {
         // the exporter will clear out empty voices and bars, to have correct assertions we do that before
         ModelUtils.trimEmptyBarsAtEnd(expected);
@@ -70,6 +92,8 @@ export class ComparisonHelpers {
         expected: Score,
         ignoreKeys: string[] | null = null
     ) {
+        ComparisonHelpers.simplifyAccidentalModes(expected);
+        ComparisonHelpers.simplifyAccidentalModes(actual);
         const expectedJson = JsonConverter.scoreToJsObject(expected);
         const actualJson = JsonConverter.scoreToJsObject(actual);
 
@@ -99,7 +123,6 @@ export class ComparisonHelpers {
             // note level
             'ratioposition',
             'percussionarticulation',
-            'accidentalmode', // we need a better way to check defaults against forced modes
 
             // for now ignore the automations as they get reorganized from beat to masterbar level
             // which messes with the 1:1 validation
@@ -142,36 +165,36 @@ export class ComparisonHelpers {
         const actualType = typeof actual;
 
         if (actualType !== expectedType) {
-            assert.fail(`Type Mismatch on hierarchy: ${path}, actual<'${actualType}'> != expected<'${expectedType}'>`);
+            throw new Error(`Type Mismatch on hierarchy: ${path}, actual<'${actualType}'> != expected<'${expectedType}'>`);
         }
 
         switch (actualType) {
             case 'boolean':
                 if ((actual as boolean) !== (expected as boolean)) {
-                    assert.fail(
+                    throw new Error(
                         `Boolean mismatch on hierarchy: ${path}, actual<'${actual}'> != expected<'${expected}'>`
                     );
                 }
                 break;
             case 'number':
                 if (Math.abs((actual as number) - (expected as number)) >= 0.000001) {
-                    assert.fail(
+                    throw new Error(
                         `Number mismatch on hierarchy: ${path}, actual<'${actual}'> != expected<'${expected}'>`
                     );
                 }
                 break;
             case 'object':
                 if ((actual === null) !== (expected === null)) {
-                    assert.fail(`Null mismatch on hierarchy: ${path}, actual<'${actual}'> != expected<'${expected}'>`);
+                    throw new Error(`Null mismatch on hierarchy: ${path}, actual<'${actual}'> != expected<'${expected}'>`);
                 } else if (actual) {
                     if (Array.isArray(actual) !== Array.isArray(expected)) {
-                        assert.fail(`IsArray mismatch on hierarchy: ${path}`);
+                        throw new Error(`IsArray mismatch on hierarchy: ${path}`);
                     } else if (Array.isArray(actual) && Array.isArray(expected)) {
                         const actualArray = TestPlatform.typedArrayAsUnknownArray(actual);
                         const expectedArray = TestPlatform.typedArrayAsUnknownArray(expected);
 
                         if (actualArray.length !== expectedArray.length) {
-                            assert.fail(
+                            throw new Error(
                                 `Array Length mismatch on hierarchy: ${path}, actual<${actualArray.length}> != expected<${expectedArray.length}>`
                             );
                         } else {
@@ -187,7 +210,7 @@ export class ComparisonHelpers {
                         }
                     } else if (expected instanceof Map) {
                         if (!(actual instanceof Map)) {
-                            assert.fail(
+                            throw new Error(
                                 `Map mismatch on hierarchy: ${path}, actual<'${actual}'> != expected<'${expected}'>`
                             );
                         } else {
@@ -223,7 +246,7 @@ export class ComparisonHelpers {
                             const actualKeyList = actualKeys.join(',');
                             const expectedKeyList = expectedKeys.join(',');
                             if (actualKeyList !== expectedKeyList) {
-                                assert.fail(
+                                throw new Error(
                                     `Object Keys mismatch on hierarchy: ${path}, actual<'${actualKeyList}'> != expected<'${expectedKeyList}'>`
                                 );
                             } else {
@@ -245,14 +268,14 @@ export class ComparisonHelpers {
                 break;
             case 'string':
                 if ((actual as string) !== (expected as string)) {
-                    assert.fail(
+                    throw new Error(
                         `String mismatch on hierarchy: ${path}, actual<'${actual}'> != expected<'${expected}'>`
                     );
                 }
                 break;
             case 'undefined':
                 if (actual !== expected) {
-                    assert.fail(`null mismatch on hierarchy: ${path}, actual<'${actual}'> != expected<'${expected}'>`);
+                    throw new Error(`null mismatch on hierarchy: ${path}, actual<'${actual}'> != expected<'${expected}'>`);
                 }
                 break;
         }
@@ -268,7 +291,6 @@ export class ComparisonHelpers {
         path: string,
         _ignoreKeys: string[] | null
     ): boolean {
-        assert.fail(`Cannot compare unknown object types on path ${path}`);
-        return false;
+        throw new Error(`Cannot compare unknown object types on path ${path}`);
     }
 }

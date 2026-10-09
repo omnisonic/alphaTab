@@ -63,13 +63,14 @@ export class GpxImporter extends ScoreImporter {
         // the score information as XML we need to parse.
         Logger.debug(this.name, 'Start Parsing score.gpif');
         const gpifParser: GpifParser = new GpifParser();
+        gpifParser.isGp6 = true;
         gpifParser.parseXml(xml, this.settings);
         Logger.debug(this.name, 'score.gpif parsed');
         const score: Score = gpifParser.score;
 
         if (binaryStylesheetData) {
             Logger.debug(this.name, 'Start Parsing BinaryStylesheet');
-            const binaryStylesheet: BinaryStylesheet = new BinaryStylesheet(binaryStylesheetData);
+            const binaryStylesheet: BinaryStylesheet = new BinaryStylesheet(binaryStylesheetData, this.settings.importer.maxDecodingBufferSize);
             binaryStylesheet.apply(score);
             Logger.debug(this.name, 'BinaryStylesheet parsed');
         }
