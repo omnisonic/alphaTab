@@ -10,7 +10,8 @@ import {
     BracketExtendMode,
     TrackNameMode,
     TrackNameOrientation,
-    TrackNamePolicy
+    TrackNamePolicy,
+    TuningDisplayMode
 } from '@coderline/alphatab/model/RenderStylesheet';
 import { ScoreSubElement } from '@coderline/alphatab/model/Score';
 import { TextAlign } from '@coderline/alphatab/platform/ICanvas';
@@ -506,4 +507,22 @@ describe('Gp8ImporterTest', () => {
         const score = reader.readScore();
         GpImporterTestHelper.checkHarmonics(score);
     });
+
+    it('orphan-tempo-automation', async () => {
+        // GPIF tempo automations can reference bar indices that are not
+        // present in the score's masterBars list (e.g. off-by-one or after
+        // bar deletion). Should be skipped instead of null-dereferencing.
+        const reader = await prepareImporterWithFile('guitarpro8/orphan-tempo-automation.gp');
+        const score = reader.readScore();
+        expect(score.masterBars.length).toBe(100);
+        expect(score.tracks.length).toBe(3);
+    });
+
+    it('tuning-before-staff', async () =>{
+        const reader = await prepareImporterWithFile('guitarpro8/tuning-before-staff.gp');
+        const score = reader.readScore();
+
+        expect(score.stylesheet.tuningDisplayMode).toBe(TuningDisplayMode.Staff);
+        
+    })
 });

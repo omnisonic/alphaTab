@@ -100,7 +100,12 @@ class NotExpector<T>(private val actual: T, private val message: String? = null)
                 message ?: "Expected collection ${actual.joinToString(",")} to not contain $value",
                 actual.contains(value)
             )
-        } else {
+        } else if(actual is String) {
+            Assert.assertFalse(
+                message ?: "Expected string $actual to no contain $value",
+                actual.contains(value as String)
+            )
+        }else {
             Assert.fail("toContain can only be used with Iterable operands");
         }
     }
@@ -136,6 +141,28 @@ class NotExpector<T>(private val actual: T, private val message: String? = null)
         }
     }
 
+    fun toBeGreaterThanOrEqual(expected: Double) {
+        if (actual is Number) {
+            Assert.assertFalse(
+                message ?: "Expected $actual to not be greater than or equal to $expected",
+                actual.toDouble() >= expected
+            )
+        } else {
+            Assert.fail("toBeGreaterThanOrEqual can only be used with numeric operands")
+        }
+    }
+
+    fun toBeLessThanOrEqual(expected: Double) {
+        if (actual is Number) {
+            Assert.assertFalse(
+                message ?: "Expected $actual to not be less than or equal to $expected",
+                actual.toDouble() <= expected
+            )
+        } else {
+            Assert.fail("toBeLessThanOrEqual can only be used with numeric operands")
+        }
+    }
+
     fun toBeNull() {
         Assert.assertNotNull(message, actual)
     }
@@ -153,8 +180,7 @@ class NotExpector<T>(private val actual: T, private val message: String? = null)
 }
 
 class Expector<T>(private val actual: T, private val message: String? = null) {
-    val not
-        get() = NotExpector(actual, message)
+    fun not() = NotExpector(actual, message)
 
     fun equal(expected: Any?, message: String? = null) {
         var actualToCheck = actual
@@ -205,6 +231,28 @@ class Expector<T>(private val actual: T, private val message: String? = null) {
         }
     }
 
+    fun greaterThanOrEqual(expected: Double, message: String? = null) {
+        if (actual is Number) {
+            Assert.assertTrue(
+                this.message ?: (message ?: "Expected $actual to be greater than or equal to $expected"),
+                actual.toDouble() >= expected
+            )
+        } else {
+            Assert.fail("greaterThanOrEqual can only be used with numeric operands");
+        }
+    }
+
+    fun lessThanOrEqual(expected: Double, message: String? = null) {
+        if (actual is Number) {
+            Assert.assertTrue(
+                this.message ?: (message ?: "Expected $actual to be less than or equal to $expected"),
+                actual.toDouble() <= expected
+            )
+        } else {
+            Assert.fail("lessThanOrEqual can only be used with numeric operands");
+        }
+    }
+
     fun closeTo(expected: Double, delta: Double, message: String? = null) {
         if (actual is Number) {
             Assert.assertEquals(this.message ?: message, expected, actual.toDouble(), delta)
@@ -230,6 +278,11 @@ class Expector<T>(private val actual: T, private val message: String? = null) {
             Assert.assertTrue(
                 message ?: "Expected collection ${actual.joinToString(",")} to contain $value",
                 actual.contains(value)
+            )
+        } else if(actual is String) {
+            Assert.assertTrue(
+                message ?: "Expected string $actual to contain $value",
+                actual.contains(value as String)
             )
         } else {
             Assert.fail("contain can only be used with Iterable operands");
@@ -258,6 +311,26 @@ class Expector<T>(private val actual: T, private val message: String? = null) {
     }
 
     fun toEqual(expected: Any?, message: String? = null) {
+        val a = actual
+        // Sequences compare element-wise; runtime List types don't override equals.
+        if (a is Iterable<*> && expected is Iterable<*>) {
+            val ai = a.iterator()
+            val ei = expected.iterator()
+            var i = 0
+            while (true) {
+                val aHas = ai.hasNext()
+                val eHas = ei.hasNext()
+                if (!aHas && !eHas) {
+                    return
+                }
+                if (aHas != eHas) {
+                    Assert.fail(message ?: this.message ?: "Sequence length mismatch at index $i")
+                    return
+                }
+                Assert.assertEquals(message ?: this.message ?: "Element $i", ei.next(), ai.next())
+                i++
+            }
+        }
         equal(expected, message)
     }
 
@@ -296,6 +369,14 @@ class Expector<T>(private val actual: T, private val message: String? = null) {
         lessThan(expected)
     }
 
+    fun toBeGreaterThanOrEqual(expected: Double, message: String? = null) {
+        greaterThanOrEqual(expected, message)
+    }
+
+    fun toBeLessThanOrEqual(expected: Double, message: String? = null) {
+        lessThanOrEqual(expected, message)
+    }
+
     fun toBeInstanceOf(expected: KClass<*>) {
         Assert.assertTrue(
             message ?: "Expected ${actual?.let { it::class.qualifiedName }} to be instance of ${expected.qualifiedName}",
@@ -313,6 +394,10 @@ class Expector<T>(private val actual: T, private val message: String? = null) {
 
     fun toThrow(expected: KClass<out Throwable>) {
         `throw`(expected)
+    }
+
+    fun toThrow() {
+        `throw`(Throwable::class)
     }
 
     fun `throw`(expected: KClass<out Throwable>) {

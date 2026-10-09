@@ -125,8 +125,9 @@ public class DoubleList : IDoubleIterable {
         return DoubleList(copy, copy.size)
     }
 
-    public fun sort() {
+    public fun sort(): DoubleList {
         _items.sort(0, _size)
+        return this
     }
 
     internal fun sortDescending() {
@@ -186,5 +187,14 @@ public class DoubleList : IDoubleIterable {
         var accumulator = initial
         for (element in _items) accumulator = operation(accumulator, element)
         return accumulator
+    }
+
+    public fun some(predicate: (Double) -> Boolean): Boolean {
+        for (el in this) {
+            if(predicate(el)) {
+                return true
+            }
+        }
+        return false
     }
 }

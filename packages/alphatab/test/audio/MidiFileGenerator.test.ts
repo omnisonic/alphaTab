@@ -12,7 +12,7 @@ import {
     NoteOnEvent,
     type TimeSignatureEvent
 } from '@coderline/alphatab/midi/MidiEvent';
-import { MidiFile } from '@coderline/alphatab/midi/MidiFile';
+import { MidiFile, MidiFileFormat } from '@coderline/alphatab/midi/MidiFile';
 import { MidiFileGenerator } from '@coderline/alphatab/midi/MidiFileGenerator';
 import type { MidiTickLookup } from '@coderline/alphatab/midi/MidiTickLookup';
 import { MidiUtils } from '@coderline/alphatab/midi/MidiUtils';
@@ -59,9 +59,10 @@ describe('MidiFileGeneratorTest', () => {
         for (let i: number = 0; i < actualEvents.length; i++) {
             Logger.info('Test', `i[${i}] ${actualEvents[i]}`);
             if (i < expectedEvents.length) {
-                expect(expectedEvents[i].equals(actualEvents[i]), `i[${i}] expected[${expectedEvents[i]}] !== actual[${actualEvents[i]}]`).toBe(
-                    true
-                );
+                expect(
+                    expectedEvents[i].equals(actualEvents[i]),
+                    `i[${i}] expected[${expectedEvents[i]}] !== actual[${actualEvents[i]}]`
+                ).toBe(true);
             }
         }
         expect(actualEvents.length).toBe(expectedEvents.length);
@@ -614,54 +615,133 @@ describe('MidiFileGeneratorTest', () => {
         assertEvents(handler.midiEvents, expectedEvents);
     });
 
-    it('triplet-feel', () => {
-        const tex: string =
-            '\\ts 2 4 \\tf t8 3.2.8*4 | \\tf t16 3.2.16*8 | \\tf d8 3.2.8*4 | \\tf d16 3.2.16*8 | \\tf s8 3.2.8*4 | \\tf s16 3.2.16*8';
-        const score: Score = parseTex(tex);
-        // prettier-ignore
-        const expectedPlaybackStartTimes: number[] = [
-            0, 480, 960, 1440, 0, 240, 480, 720, 960, 1200, 1440, 1680, 0, 480, 960, 1440, 0, 240, 480, 720, 960, 1200,
-            1440, 1680, 0, 480, 960, 1440, 0, 240, 480, 720, 960, 1200, 1440, 1680
-        ];
-        // prettier-ignore
-        const expectedPlaybackDurations: number[] = [
-            480, 480, 480, 480, 240, 240, 240, 240, 240, 240, 240, 240, 480, 480, 480, 480, 240, 240, 240, 240, 240,
-            240, 240, 240, 480, 480, 480, 480, 240, 240, 240, 240, 240, 240, 240, 240
-        ];
-        const actualPlaybackStartTimes: number[] = [];
-        const actualPlaybackDurations: number[] = [];
-        let beat: Beat | null = score.tracks[0].staves[0].bars[0].voices[0].beats[0];
-        while (beat) {
-            actualPlaybackStartTimes.push(beat.playbackStart);
-            actualPlaybackDurations.push(beat.playbackDuration);
-            beat = beat.nextBeat;
-        }
-        expect(actualPlaybackStartTimes.join(',')).toBe(expectedPlaybackStartTimes.join(','));
-        expect(actualPlaybackDurations.join(',')).toBe(expectedPlaybackDurations.join(','));
-        // prettier-ignore
-        const expectedMidiStartTimes: number[] = [
-            0, 640, 960, 1600, 1920, 2240, 2400, 2720, 2880, 3200, 3360, 3680, 3840, 4560, 4800, 5520, 5760, 6120, 6240,
-            6600, 6720, 7080, 7200, 7560, 7680, 7920, 8640, 8880, 9600, 9720, 10080, 10200, 10560, 10680, 11040, 11160
-        ];
-        // prettier-ignore
-        const expectedMidiDurations: number[] = [
-            640, 320, 640, 320, 320, 160, 320, 160, 320, 160, 320, 160, 720, 240, 720, 240, 360, 120, 360, 120, 360,
-            120, 360, 120, 240, 720, 240, 720, 120, 360, 120, 360, 120, 360, 120, 360
-        ];
+    describe('triplet-feel', () => {
+        function testTripletFeel(
+            tex: string,
+            expectedPlaybackStartTimes: number[],
+            expectedPlaybackDurations: number[],
+            expectedMidiStartTimes: number[],
+            expectedMidiDurations: number[]
+        ) {
+            const score: Score = parseTex(tex);
 
-        const actualMidiStartTimes: number[] = [];
-        const actualMidiDurations: number[] = [];
-        const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
-        const generator: MidiFileGenerator = new MidiFileGenerator(score, null, handler);
-        generator.generate();
-        for (const midiEvent of handler.midiEvents) {
-            if (midiEvent instanceof FlatNoteEvent) {
-                actualMidiStartTimes.push(midiEvent.tick);
-                actualMidiDurations.push(midiEvent.length);
+            const actualPlaybackStartTimes: number[] = [];
+            const actualPlaybackDurations: number[] = [];
+            let beat: Beat | null = score.tracks[0].staves[0].bars[0].voices[0].beats[0];
+            while (beat) {
+                actualPlaybackStartTimes.push(beat.playbackStart);
+                actualPlaybackDurations.push(beat.playbackDuration);
+                beat = beat.nextBeat;
             }
+            expect(actualPlaybackStartTimes.join(','), 'expectedPlaybackStartTimes').toBe(
+                expectedPlaybackStartTimes.join(',')
+            );
+            expect(actualPlaybackDurations.join(','), 'expectedPlaybackDurations').toBe(
+                expectedPlaybackDurations.join(',')
+            );
+
+            const actualMidiStartTimes: number[] = [];
+            const actualMidiDurations: number[] = [];
+            const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
+            const generator: MidiFileGenerator = new MidiFileGenerator(score, null, handler);
+            generator.generate();
+            for (const midiEvent of handler.midiEvents) {
+                if (midiEvent instanceof FlatNoteEvent) {
+                    actualMidiStartTimes.push(midiEvent.tick);
+                    actualMidiDurations.push(midiEvent.length);
+                }
+            }
+            expect(actualMidiStartTimes.join(','), 'expectedMidiStartTimes').toBe(expectedMidiStartTimes.join(','));
+            expect(actualMidiDurations.join(','), 'expectedMidiDurations').toBe(expectedMidiDurations.join(','));
         }
-        expect(actualMidiStartTimes.join(',')).toBe(expectedMidiStartTimes.join(','));
-        expect(actualMidiDurations.join(',')).toBe(expectedMidiDurations.join(','));
+
+        it('variants', () => {
+            const tex: string =
+                '\\ts 2 4 \\tf t8 3.2.8*4 | \\tf t16 3.2.16*8 | \\tf d8 3.2.8*4 | \\tf d16 3.2.16*8 | \\tf s8 3.2.8*4 | \\tf s16 3.2.16*8';
+            const expectedPlaybackStartTimes: number[] = [
+                0, 480, 960, 1440, 0, 240, 480, 720, 960, 1200, 1440, 1680, 0, 480, 960, 1440, 0, 240, 480, 720, 960,
+                1200, 1440, 1680, 0, 480, 960, 1440, 0, 240, 480, 720, 960, 1200, 1440, 1680
+            ];
+            const expectedPlaybackDurations: number[] = [
+                480, 480, 480, 480, 240, 240, 240, 240, 240, 240, 240, 240, 480, 480, 480, 480, 240, 240, 240, 240, 240,
+                240, 240, 240, 480, 480, 480, 480, 240, 240, 240, 240, 240, 240, 240, 240
+            ];
+            const expectedMidiStartTimes: number[] = [
+                0, 640, 960, 1600, 1920, 2240, 2400, 2720, 2880, 3200, 3360, 3680, 3840, 4560, 4800, 5520, 5760, 6120,
+                6240, 6600, 6720, 7080, 7200, 7560, 7680, 7920, 8640, 8880, 9600, 9720, 10080, 10200, 10560, 10680,
+                11040, 11160
+            ];
+            const expectedMidiDurations: number[] = [
+                640, 320, 640, 320, 320, 160, 320, 160, 320, 160, 320, 160, 720, 240, 720, 240, 360, 120, 360, 120, 360,
+                120, 360, 120, 240, 720, 240, 720, 120, 360, 120, 360, 120, 360, 120, 360
+            ];
+            testTripletFeel(
+                tex,
+                expectedPlaybackStartTimes,
+                expectedPlaybackDurations,
+                expectedMidiStartTimes,
+                expectedMidiDurations
+            );
+        });
+
+        it('not-matching-with-grace', () => {
+            testTripletFeel(
+                `
+            \\tf triplet8th
+            0.1.8
+            0.1.8{gr onbeat}
+            0.1.4
+            0.1.8
+            0.1.8
+            0.1.8
+            0.1.8
+            0.1.8 |
+            0.1.8 * 8
+            `,
+                // no swing on playback start/durations
+                [
+                    // Bar 1
+                    0, 480, 600, 1440, 1920, 2400, 2880, 3360,
+                    // Bar 2
+                    0, 480, 960, 1440, 1920, 2400, 2880, 3360
+                ],
+                [
+                    // Bar 1
+                    480, 120, 840, 480, 480, 480, 480, 480,
+                    // Bar 2
+                    480, 480, 480, 480, 480, 480, 480, 480
+                ],
+                // swing on generated midi
+                [
+                    // Bar 1
+                    // no swing on the first 4 notes as they do not align with the swing definition
+                    0, 480, 600, 1440,
+                    // the last two 8th note pairs swing
+                    1920, 2560, 2880, 3520,
+                    // Bar 2 fully swings
+                    3840, 4480, 4800, 5440, 5760, 6400, 6720, 7360
+                ],
+                [
+                    // no swing
+                    480, 120, 840, 480,
+                    // the last two 8th note pairs swing
+                    640, 320, 640, 320,
+                    // Swing on second bar
+                    640, 320, 640, 320, 640, 320, 640, 320
+                ]
+            );
+        });
+
+        it('anacrusis', () => {
+            // the pick-up forms the end of a full bar: the first eighth is an offbeat
+            testTripletFeel(
+                '\\ts 2 4 \\ac \\tf t8 3.2.8*3 | \\tf t8 3.2.8*4',
+                [0, 480, 960, 0, 480, 960, 1440],
+                [480, 480, 480, 480, 480, 480, 480],
+                [0, 480, 1120, 1440, 2080, 2400, 3040],
+                [480, 640, 320, 640, 320, 640, 320]
+            );
+        });
     });
 
     it('beat-multi-bend', () => {
@@ -1764,6 +1844,48 @@ describe('MidiFileGeneratorTest', () => {
         expect(actualTimers.join(',')).toBe(expectedTimers.join(','));
     });
 
+    it('beat-timer-multiple-tracks', () => {
+        const score: Score = parseTex(`
+            \\tempo 120
+            .
+            \\track "T1"
+                3.3.4 { timer } 3.3.4*3 |
+                3.3.4 { timer } 3.3.4*3 |
+                3.3.4 { timer } 3.3.4*3
+            \\track "T2"
+                3.3.4 { timer } 3.3.4*3 |
+                3.3.4 { timer } 3.3.4*3 |
+                3.3.4 { timer } 3.3.4*3
+        `);
+
+        const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
+        const generator: MidiFileGenerator = new MidiFileGenerator(score, null, handler);
+        generator.generate();
+
+        for (const track of score.tracks) {
+            const actualTimers = track.staves[0].bars.map(b => b.voices[0].beats[0].timer ?? -1);
+            expect(actualTimers.join(','), track.name).toBe('0,2000,4000');
+        }
+    });
+
+    it('beat-timer-tempo-change-mid-bar', () => {
+        const score: Score = parseTex(`
+            \\tempo 120
+            .
+                3.3.4 { timer } 3.3.4*3 |
+                3.3.4 { timer } 3.3.4 3.3.4 { tempo 60 } 3.3.4 |
+                3.3.4 { timer } 3.3.4*3
+        `);
+
+        const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
+        const generator: MidiFileGenerator = new MidiFileGenerator(score, null, handler);
+        generator.generate();
+
+        const actualTimers = score.tracks[0].staves[0].bars.map(b => b.voices[0].beats[0].timer ?? -1);
+        // 2 beats at 120bpm (1000ms) + 2 beats at 60bpm (2000ms)
+        expect(actualTimers.join(',')).toBe('0,2000,5000');
+    });
+
     it('beat-timer-tempo-changes', () => {
         const score: Score = parseTex(`
             \\tempo 120
@@ -1809,6 +1931,86 @@ describe('MidiFileGeneratorTest', () => {
         ];
 
         expect(actualTimers.join(',')).toBe(expectedTimers.join(','));
+    });
+
+    describe('metronome', () => {
+        function testMetronome(tex: string, expectedClicks: string) {
+            const score: Score = parseTex(tex);
+            const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
+            const generator: MidiFileGenerator = new MidiFileGenerator(score, null, handler);
+            generator.generate();
+            const actualClicks = handler.metronomeEvents.map(e => `${e.tick}:${e.counter}`).join(' ');
+            expect(actualClicks).toBe(expectedClicks);
+        }
+
+        it('regular', () => {
+            testMetronome('\\ts 3 4 3.3.4*3 | 3.3.4*3', '0:0 960:1 1920:2 2880:0 3840:1 4800:2');
+        });
+
+        it('time-signature-change', () => {
+            testMetronome(
+                '\\ts 7 8 3.3.8*7 | \\ts 4 4 3.3.1',
+                '0:0 480:1 960:2 1440:3 1920:4 2400:5 2880:6 3360:0 4320:1 5280:2 6240:3'
+            );
+        });
+
+        it('anacrusis', () => {
+            // 3/8 pick-up in 2/4: the pick-up starts on the offbeat of beat 1
+            testMetronome('\\ts 2 4 \\ac 3.3.8*3 | 3.3.2 | 3.3.2', '480:1 1440:0 2400:1 3360:0 4320:1');
+        });
+
+        it('anacrusis-full-beats', () => {
+            testMetronome('\\ts 4 4 \\ac 3.3.4 | 3.3.1', '0:3 960:0 1920:1 2880:2 3840:3');
+        });
+
+        it('anacrusis-repeat', () => {
+            testMetronome(
+                '\\ts 2 4 \\ac 3.3.8*3 | \\ro 3.3.2 | \\rc 2 3.3.2',
+                '480:1 1440:0 2400:1 3360:0 4320:1 5280:0 6240:1 7200:0 8160:1'
+            );
+        });
+    });
+
+    it('anacrusis-tempo-automation', () => {
+        // automation positions are relative to the full time signature (like in Guitar Pro)
+        const score: Score = parseTex('\\ts 2 4 \\ac 3.3.8 3.3.8 3.3.8 { tempo 60 } | 3.3.2');
+        expect(score.masterBars[0].tempoAutomations.map(a => a.ratioPosition).join(',')).toBe('0.5');
+
+        const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
+        const generator: MidiFileGenerator = new MidiFileGenerator(score, null, handler);
+        generator.generate();
+
+        const tempoChanges: string[] = [];
+        for (const e of handler.midiEvents) {
+            if (e instanceof FlatTempoEvent) {
+                tempoChanges.push(`${e.tick}:${e.tempo}`);
+            }
+        }
+        expect(tempoChanges.join(' ')).toBe('960:60');
+    });
+
+    it('multi-track-format-events', () => {
+        const score: Score = parseTex('\\track "T1" 3.3.4*4 | 3.3.1 \\track "T2" 3.4.2*2 | 3.4.1');
+        const midi = new MidiFile();
+        midi.format = MidiFileFormat.MultiTrack;
+        const generator: MidiFileGenerator = new MidiFileGenerator(score, null, new AlphaSynthMidiFileHandler(midi));
+        generator.generate();
+
+        expect(midi.tracks.length).toBe(2);
+        const events = midi.events;
+        expect(events.length).toBe(midi.tracks[0].events.length + midi.tracks[1].events.length);
+
+        // sorted by tick and keeping the order within each track
+        const positions: number[] = [0, 0];
+        let previousTick = 0;
+        for (const e of events) {
+            expect(e.tick).toBeGreaterThanOrEqual(previousTick);
+            previousTick = e.tick;
+            const track =
+                positions[0] < midi.tracks[0].events.length && midi.tracks[0].events[positions[0]] === e ? 0 : 1;
+            expect(midi.tracks[track].events[positions[track]]).toBe(e);
+            positions[track]++;
+        }
     });
 
     it('transpose', () => {

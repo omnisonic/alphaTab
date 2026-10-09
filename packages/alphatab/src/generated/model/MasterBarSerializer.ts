@@ -9,6 +9,8 @@ import { BeamingRulesSerializer } from "@coderline/alphatab/generated/model/Beam
 import { SectionSerializer } from "@coderline/alphatab/generated/model/SectionSerializer";
 import { AutomationSerializer } from "@coderline/alphatab/generated/model/AutomationSerializer";
 import { FermataSerializer } from "@coderline/alphatab/generated/model/FermataSerializer";
+import { KeySignature } from "@coderline/alphatab/model/KeySignature";
+import { KeySignatureType } from "@coderline/alphatab/model/KeySignatureType";
 import { BeamingRules } from "@coderline/alphatab/model/MasterBar";
 import { TripletFeel } from "@coderline/alphatab/model/TripletFeel";
 import { Section } from "@coderline/alphatab/model/Section";
@@ -25,12 +27,14 @@ export class MasterBarSerializer {
         }
         JsonHelper.forEach(m, (v, k) => MasterBarSerializer.setProperty(obj, k, v));
     }
-    public static toJson(obj: MasterBar | null): Map<string, unknown> | null {
+    public static toJson(obj: MasterBar | null | undefined): Map<string, unknown> | null {
         if (!obj) {
             return null;
         }
         const o = new Map<string, unknown>();
         o.set("alternateendings", obj.alternateEndings);
+        o.set("custombarnumbertext", obj.customBarNumberText);
+        o.set("custombarnumber", obj.customBarNumber);
         o.set("isdoublebar", obj.isDoubleBar);
         o.set("isrepeatstart", obj.isRepeatStart);
         o.set("repeatcount", obj.repeatCount);
@@ -73,6 +77,18 @@ export class MasterBarSerializer {
         switch (property) {
             case "alternateendings":
                 obj.alternateEndings = v! as number;
+                return true;
+            case "custombarnumbertext":
+                obj.customBarNumberText = v as string | undefined;
+                return true;
+            case "custombarnumber":
+                obj.customBarNumber = v as number | undefined;
+                return true;
+            case "keysignature":
+                obj.keySignature = JsonHelper.parseEnum<KeySignature>(v, KeySignature)!;
+                return true;
+            case "keysignaturetype":
+                obj.keySignatureType = JsonHelper.parseEnum<KeySignatureType>(v, KeySignatureType)!;
                 return true;
             case "isdoublebar":
                 obj.isDoubleBar = v! as boolean;

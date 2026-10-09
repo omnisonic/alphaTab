@@ -1,9 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { AlphaTabApiBase } from '@coderline/alphatab/AlphaTabApiBase';
 import { ScoreLoader } from '@coderline/alphatab/importer/ScoreLoader';
 import { ByteBuffer } from '@coderline/alphatab/io/ByteBuffer';
 import { Logger } from '@coderline/alphatab/Logger';
 import { AlphaSynthMidiFileHandler } from '@coderline/alphatab/midi/AlphaSynthMidiFileHandler';
-
 import { MasterBarTickLookup, MasterBarTickLookupTempoChange } from '@coderline/alphatab/midi/MasterBarTickLookup';
 import { MidiFile } from '@coderline/alphatab/midi/MidiFile';
 import { MidiFileGenerator } from '@coderline/alphatab/midi/MidiFileGenerator';
@@ -13,18 +12,22 @@ import {
     MidiTickLookupFindBeatResultCursorMode
 } from '@coderline/alphatab/midi/MidiTickLookup';
 import { MidiUtils } from '@coderline/alphatab/midi/MidiUtils';
+import { Bar } from '@coderline/alphatab/model/Bar';
 import { Beat } from '@coderline/alphatab/model/Beat';
 import { Duration } from '@coderline/alphatab/model/Duration';
 import { MasterBar } from '@coderline/alphatab/model/MasterBar';
 import { ModelUtils } from '@coderline/alphatab/model/ModelUtils';
-import { Bar } from '@coderline/alphatab/model/Bar';
 import { Note } from '@coderline/alphatab/model/Note';
 import { Score } from '@coderline/alphatab/model/Score';
 import { Track } from '@coderline/alphatab/model/Track';
 import { Voice } from '@coderline/alphatab/model/Voice';
+import { PlayerMode } from '@coderline/alphatab/PlayerSettings';
 import { Settings } from '@coderline/alphatab/Settings';
-import { TestPlatform } from 'test/TestPlatform';
 import { PlaybackRange } from '@coderline/alphatab/synth/PlaybackRange';
+import { type FlatMidiEvent, FlatMidiEventGenerator, FlatNoteEvent } from 'test/audio/FlatMidiEventGenerator';
+import { TestPlatform } from 'test/TestPlatform';
+import { TestUiFacade } from 'test/visualTests/TestUiFacade';
+import { describe, expect, it } from 'vitest';
 
 describe('MidiTickLookupTest', () => {
     function buildLookup(score: Score, settings: Settings): MidiTickLookup {
@@ -729,9 +732,10 @@ describe('MidiTickLookupTest', () => {
         expect(actualIncrementalNextIds.join(','), 'nextBeatIds mismatch').toBe(nextBeatIds.join(','));
         expect(actualIncrementalTickDurations.join(','), 'durations mismatch').toBe(durations.join(','));
         if (expectedCursorModes) {
-            expect(expectedCursorModes.map(m => MidiTickLookupFindBeatResultCursorMode[m]).join(','), 'cursorModes mismatch').toBe(
-                actualCursorModes.map(m => MidiTickLookupFindBeatResultCursorMode[m]).join(',')
-            );
+            expect(
+                expectedCursorModes.map(m => MidiTickLookupFindBeatResultCursorMode[m]).join(','),
+                'cursorModes mismatch'
+            ).toBe(actualCursorModes.map(m => MidiTickLookupFindBeatResultCursorMode[m]).join(','));
         }
 
         if (!skipClean) {
@@ -1471,5 +1475,56 @@ describe('MidiTickLookupTest', () => {
                 }
             );
         });
+    });
+
+    it('swing-click-lookup', async () => {
+        const settings = new Settings();
+        settings.core.engine = 'svg';
+
+        const score = ScoreLoader.loadAlphaTex(`\\tf triplet8th C4.8 * 8`, settings);
+        const handler = new FlatMidiEventGenerator();
+        const generator = new MidiFileGenerator(score, settings, handler);
+        generator.generate();
+
+        const noteEvents = handler.midiEvents.filter<FlatMidiEvent>(e => e instanceof FlatNoteEvent);
+        expect(noteEvents.length).toBe(8);
+
+        const beats = score.tracks[0].staves[0].bars[0].voices[0].beats;
+
+        const facade = new TestUiFacade();
+        facade.rootContainer.width = 1300;
+
+        settings.player.playerMode = PlayerMode.EnabledSynthesizer;
+        const api = new AlphaTabApiBase<unknown>(facade, settings);
+
+        const promise = Promise.withResolvers<Score>();
+        api.postRenderFinished.on(() => {
+            promise.resolve(score);
+        });
+        api.error.on(e => promise.reject(e));
+        api.renderScore(score, [0]);
+
+        await promise.promise;
+
+        for (let i = 0; i < beats.length; i++) {
+            const range = generator.tickLookup.getRelativeBeatPlaybackRange(beats[i]);
+            expect(range).not.toBeUndefined();
+
+            const noteStart = noteEvents[i].tick;
+            const noteEnd = noteEvents[i].tick + (noteEvents[i] as FlatNoteEvent).length;
+
+            expect(range!.startTick).toBe(noteStart);
+            expect(range!.endTick).toBe(noteEnd);
+
+            const playbackRangePadding = 50; // small offset to avoid overshoot, see applyPlaybackRangeFromHighlight
+            if (i < beats.length - 1) {
+                api.highlightPlaybackRange(beats[i], beats[i + 1]);
+                api.applyPlaybackRangeFromHighlight();
+
+                expect(api.playbackRange!.startTick).toBe(noteStart);
+                const nextNoteEnd = noteEvents[i + 1].tick + (noteEvents[i + 1] as FlatNoteEvent).length;
+                expect(api.playbackRange!.endTick).toBe(nextNoteEnd - playbackRangePadding);
+            }
+        }
     });
 });

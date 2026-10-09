@@ -1,20 +1,21 @@
-import { LayoutMode } from '@coderline/alphatab/LayoutMode';
 import { Environment } from '@coderline/alphatab/Environment';
 import {
     EventEmitter,
+    EventEmitterOfT,
     type IEventEmitter,
-    type IEventEmitterOfT,
-    EventEmitterOfT
+    type IEventEmitterOfT
 } from '@coderline/alphatab/EventEmitter';
+import { LayoutMode } from '@coderline/alphatab/LayoutMode';
+import { Logger } from '@coderline/alphatab/Logger';
 import type { Score } from '@coderline/alphatab/model/Score';
 import type { Track } from '@coderline/alphatab/model/Track';
 import type { ICanvas } from '@coderline/alphatab/platform/ICanvas';
+import { Profiler } from '@coderline/alphatab/profiling/Profiler';
 import type { IScoreRenderer, RenderHints } from '@coderline/alphatab/rendering/IScoreRenderer';
 import type { ScoreLayout } from '@coderline/alphatab/rendering/layout/ScoreLayout';
 import { RenderFinishedEventArgs } from '@coderline/alphatab/rendering/RenderFinishedEventArgs';
 import { BoundsLookup } from '@coderline/alphatab/rendering/utils/BoundsLookup';
 import type { Settings } from '@coderline/alphatab/Settings';
-import { Logger } from '@coderline/alphatab/Logger';
 
 /**
  * This is the main wrapper of the rendering engine which
@@ -136,9 +137,28 @@ export class ScoreRenderer implements IScoreRenderer {
     }
 
     public render(renderHints?: RenderHints): void {
+        if (this._renderProfiled(renderHints)) {
+            this._notifyRenderFinished();
+        }
+    }
+
+    /**
+     * Renders within the 'render.total' profiling frame.
+     * The finished events are raised by the caller once all profiling frames are closed:
+     * listeners might start a new render right away (e.g. on another thread).
+     * @returns whether the rendering finished (and the finished events need to be raised).
+     */
+    private _renderProfiled(renderHints?: RenderHints): boolean {
+        Profiler.begin('render.total');
+        const finished = this._render(renderHints);
+        Profiler.end('render.total');
+        return finished;
+    }
+
+    private _render(renderHints?: RenderHints): boolean {
         if (this.width === 0) {
             Logger.warning('Rendering', 'AlphaTab skipped rendering because of width=0 (element invisible)', null);
-            return;
+            return false;
         }
         // For partial renders we preserve the existing lookup so bars outside the re-layouted
         // range keep their already-scaled bounds - the layout will clear the changed range
@@ -156,8 +176,6 @@ export class ScoreRenderer implements IScoreRenderer {
             Logger.debug('Rendering', 'Clearing rendered tracks because no score or tracks are set');
             (this.preRender as EventEmitterOfT<boolean>).trigger(false);
             this._renderedTracks = null;
-            this._onRenderFinished();
-            (this.postRenderFinished as EventEmitter).trigger();
             Logger.debug('Rendering', 'Clearing finished');
         } else {
             Logger.debug('Rendering', `Rendering ${this.tracks.length} tracks`);
@@ -170,24 +188,32 @@ export class ScoreRenderer implements IScoreRenderer {
             this._layoutAndRender(renderHints);
             Logger.debug('Rendering', 'Rendering finished');
         }
+        return true;
     }
 
     public resizeRender(): void {
+        Profiler.begin('resize.total');
+        let finished = false;
         if (this._recreateLayout() || this._recreateCanvas() || this._renderedTracks !== this.tracks || !this.tracks) {
             Logger.debug('Rendering', 'Starting full rerendering due to layout or canvas change', null);
-            this.render();
+            finished = this._renderProfiled();
         } else if (this.layout!.supportsResize) {
             Logger.debug('Rendering', 'Starting optimized rerendering for resize');
             this.boundsLookup = new BoundsLookup();
             (this.preRender as EventEmitterOfT<boolean>).trigger(true);
             this.canvas!.settings = this.settings;
+            Profiler.begin('resize.layoutResize');
             this.layout!.resize();
-            this._onRenderFinished();
-            (this.postRenderFinished as EventEmitter).trigger();
+            Profiler.end('resize.layoutResize');
+            finished = true;
         } else {
             Logger.debug('Rendering', 'Current layout does not support dynamic resizing, nothing was done', null);
         }
         Logger.debug('Rendering', 'Resize finished');
+        Profiler.end('resize.total');
+        if (finished) {
+            this._notifyRenderFinished();
+        }
     }
 
     private _layoutAndRender(renderHints?: RenderHints): void {
@@ -196,8 +222,13 @@ export class ScoreRenderer implements IScoreRenderer {
             `Rendering at scale ${this.settings.display.scale} with layout ${this.layout!.name}`,
             null
         );
+        Profiler.begin('render.layoutAndRender');
         this.layout!.layoutAndRender(renderHints);
+        Profiler.end('render.layoutAndRender');
         this._renderedTracks = this.tracks;
+    }
+
+    private _notifyRenderFinished() {
         this._onRenderFinished();
         (this.postRenderFinished as EventEmitter).trigger();
     }

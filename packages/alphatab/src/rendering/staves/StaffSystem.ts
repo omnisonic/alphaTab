@@ -6,15 +6,20 @@ import {
     BracketExtendMode,
     TrackNameMode,
     TrackNameOrientation,
-    TrackNamePolicy
+    TrackNamePolicy,
+    TuningDisplayMode
 } from '@coderline/alphatab/model/RenderStylesheet';
+import { SimileMark } from '@coderline/alphatab/model/SimileMark';
 import { type Track, TrackSubElement } from '@coderline/alphatab/model/Track';
 import { NotationElement } from '@coderline/alphatab/NotationSettings';
 import { CanvasHelper, type ICanvas, TextAlign, TextBaseline } from '@coderline/alphatab/platform/ICanvas';
+import { Profiler } from '@coderline/alphatab/profiling/Profiler';
 import type { RenderingResources } from '@coderline/alphatab/RenderingResources';
 import type { BarRendererBase } from '@coderline/alphatab/rendering/BarRendererBase';
 import type { LineBarRenderer } from '@coderline/alphatab/rendering/LineBarRenderer';
 import type { ScoreLayout } from '@coderline/alphatab/rendering/layout/ScoreLayout';
+import { TabBarRenderer } from '@coderline/alphatab/rendering/TabBarRenderer';
+import { InlineTuningGlyph } from '@coderline/alphatab/rendering/glyphs/InlineTuningGlyph';
 import { BarLayoutingInfo } from '@coderline/alphatab/rendering/staves/BarLayoutingInfo';
 import { MasterBarsRenderers } from '@coderline/alphatab/rendering/staves/MasterBarsRenderers';
 import type { RenderStaff } from '@coderline/alphatab/rendering/staves/RenderStaff';
@@ -40,6 +45,13 @@ export abstract class SystemBracket {
 
     public canPaint = false;
 
+    // Captured on the first updateCanPaint call; locks whether this bracket reserves
+    // horizontal space in the accolade. A bracket that wasn't initially paintable
+    // (deferred-visibility staff) never joins the accolade even if it becomes paintable
+    // later, so staves stay aligned with bracket-less systems on the same page.
+    private _initialPaintabilityCaptured = false;
+    public reservesAccoladeSpace = false;
+
     public constructor(system: StaffSystem) {
         this._system = system;
     }
@@ -63,17 +75,20 @@ export abstract class SystemBracket {
 
         if (!firstVisibleStaff || !lastVisibleStaff) {
             this.canPaint = false;
-            return;
+        } else {
+            // single staff brackets?
+            const singleStaffBrackets = this._system.layout.renderer.score!.stylesheet.showSingleStaffBrackets;
+            if (!singleStaffBrackets && firstVisibleStaff === lastVisibleStaff) {
+                this.canPaint = false;
+            } else {
+                this.canPaint = true;
+            }
         }
 
-        // single staff brackets?
-        const singleStaffBrackets = this._system.layout.renderer.score!.stylesheet.showSingleStaffBrackets;
-        if (!singleStaffBrackets && firstVisibleStaff === lastVisibleStaff) {
-            this.canPaint = false;
-            return;
+        if (!this._initialPaintabilityCaptured) {
+            this.reservesAccoladeSpace = this.canPaint;
+            this._initialPaintabilityCaptured = true;
         }
-
-        this.canPaint = true;
     }
 
     public finalizeBracket(smuflMetrics: EngravingSettings) {
@@ -154,10 +169,24 @@ class SimilarInstrumentSystemBracket extends SingleTrackSystemBracket {
  * @internal
  */
 export class StaffSystem {
-    private _accoladeSpacingCalculated: boolean = false;
+    // Single-slot memo for the track-name (measureText-driven) component of
+    // `accoladeWidth`. -1 means "not yet computed"; >=0 is the cached value.
+    // The track-name component is determined by inputs (tracks array, stylesheet,
+    // track-name font, padding) that are stable across a system's lifetime.
+    private _trackNamesAccoladeContribution: number = -1;
+
+    /**
+     * Visibility bitset of {@link allStaves} (one bit per staff, MSB first) at
+     * the time `accoladeWidth` was last fully recomputed. `-1` = uncomputed.
+     * Used by `_calculateAccoladeSpacing` to skip the full recompute when
+     * visibility is unchanged. Limit: 53 staves (JS safe-integer range).
+     */
+    private _accoladeVisibilityFingerprint: number = -1;
 
     private _brackets: SystemBracket[] = [];
     private _staffToBracket = new Map<RenderStaff, SystemBracket>();
+    private _inlineTuningGlyphs: InlineTuningGlyph[] = [];
+    private _inlineTuningWidth = 0;
     private _contentHeight = 0;
 
     private _hasSystemSeparator = false;
@@ -276,7 +305,7 @@ export class StaffSystem {
             return null;
         }
         this.masterBarsRenderers.push(renderers);
-        renderers.layoutingInfo.preBeatSize = 0;
+        renderers.layoutingInfo.resetHeaderRods();
         let src: number = 0;
 
         let firstVisibleStaff: RenderStaff | undefined = undefined;
@@ -337,7 +366,12 @@ export class StaffSystem {
     ): MasterBarsRenderers {
         const result: MasterBarsRenderers = new MasterBarsRenderers();
         result.additionalMultiBarRestIndexes = additionalMultiBarRestIndexes;
-        result.layoutingInfo = new BarLayoutingInfo();
+        const display = this.layout.renderer.settings.display;
+        result.layoutingInfo = new BarLayoutingInfo(
+            display.spacingRatio,
+            display.resources.engravingSettings.beatContentPadding,
+            display.resources.engravingSettings.barlineContentPadding
+        );
         result.masterBar = tracks[0].score.masterBars[barIndex];
         this.masterBarsRenderers.push(result);
 
@@ -372,7 +406,7 @@ export class StaffSystem {
                 if (renderer.isLinkedToPrevious) {
                     result.isLinkedToPrevious = true;
                 }
-                if (!renderer.canWrap) {
+                if (bar.simileMark === SimileMark.SecondOfDouble) {
                     result.canWrap = false;
                 }
             }
@@ -453,7 +487,11 @@ export class StaffSystem {
         let totalContentWidth = 0;
 
         for (const mb of this.masterBarsRenderers) {
-            if (mb.layoutingInfo.computedWithMinDuration > this.minDuration) {
+            // Only re-apply renderers whose layoutingInfo was actually
+            // recomputed in this loop. `applyLayoutingInfo` no longer
+            // short-circuits internally, so the caller gates it.
+            const wasRecomputed = mb.layoutingInfo.computedWithMinDuration > this.minDuration;
+            if (wasRecomputed) {
                 mb.layoutingInfo.recomputeSpringConstants(this.minDuration);
             }
 
@@ -461,7 +499,9 @@ export class StaffSystem {
             let maxContent = 0;
             let realWidth = 0;
             for (const r of mb.renderers) {
-                r.applyLayoutingInfo();
+                if (wasRecomputed) {
+                    r.applyLayoutingInfo();
+                }
                 if (r.computedWidth > realWidth) {
                     realWidth = r.computedWidth;
                 }
@@ -537,6 +577,12 @@ export class StaffSystem {
             this.totalBarDisplayScale -= barDisplayScale;
             this.totalFixedOverhead -= toRemove.maxFixedOverhead;
             this.totalContentWidth -= toRemove.maxContentWidth;
+
+            // Re-run accolade spacing now that visibility has settled. The
+            // brace contribution may shrink if a visible staff is no longer
+            // visible after this revert.
+            this._calculateAccoladeSpacing(this.layout.renderer.tracks!);
+
             return toRemove;
         }
         return null;
@@ -583,17 +629,41 @@ export class StaffSystem {
 
     private _calculateAccoladeSpacing(tracks: Track[]): void {
         const settings = this.layout.renderer.settings;
-        if (!this._accoladeSpacingCalculated) {
-            this._accoladeSpacingCalculated = true;
 
-            this.accoladeWidth = 0;
+        // Full recompute only when visibility changes (initial call,
+        // revertLastBar flipping a staff invisible, or an added bar flipping a
+        // previously-invisible staff visible). On stable visibility we still
+        // refresh bracket `width` for paint, but leave `accoladeWidth` /
+        // `system.width` locked at their first-pass value — the brace
+        // contribution would otherwise grow with the overflow accumulators that
+        // `calculateHeightForAccolade` reads.
+        const visibilityFingerprint = this._computeVisibilityFingerprint();
+        if (this._accoladeVisibilityFingerprint === visibilityFingerprint) {
+            for (const b of this._brackets) {
+                b.updateCanPaint();
+                b.finalizeBracket(settings.display.resources.engravingSettings);
+            }
+            return;
+        }
 
-            const stylesheet = this.layout.renderer.score!.stylesheet;
-            const hasTrackName = this.layout.renderer.settings.notation.isNotationElementVisible(
-                NotationElement.TrackNames
-            );
+        // Successive recomputes must converge — unwind the previous accolade
+        // contribution from system width totals before re-deriving it.
+        const prevContribution = this.accoladeWidth;
+        this.width -= prevContribution;
+        this.computedWidth -= prevContribution;
+        this.accoladeWidth = 0;
 
-            if (hasTrackName) {
+        const hasTrackName = settings.notation.isNotationElementVisible(NotationElement.TrackNames);
+
+        if (hasTrackName) {
+            // The track-name component is determined by the tracks array, the
+            // stylesheet, the track-name font and padding settings — all stable
+            // within a system's lifetime. Memoize the computed contribution so
+            // measureText doesn't run on every addBars/revertLastBar invocation.
+            if (this._trackNamesAccoladeContribution >= 0) {
+                this.accoladeWidth = this._trackNamesAccoladeContribution;
+            } else {
+                const stylesheet = this.layout.renderer.score!.stylesheet;
                 const trackNamePolicy =
                     this.layout.renderer.tracks!.length === 1
                         ? stylesheet.singleTrackTrackNamePolicy
@@ -650,50 +720,127 @@ export class StaffSystem {
                         }
                     }
 
+                    // Accumulates onto the freshly-zeroed accoladeWidth within
+                    // this invocation; not a cross-call accumulator.
                     this.accoladeWidth += settings.display.systemLabelPaddingLeft;
                     if (hasAnyTrackName) {
                         this.accoladeWidth += settings.display.systemLabelPaddingRight;
                     }
                 }
-            }
 
-            // NOTE: we have a chicken-egg problem when it comes to scaling braces which we try to mitigate here:
-            // - The brace scales with the height of the system
-            // - The height of the system depends on the bars which can be fitted
-            // By taking another bar into the system, the height can grow and by this the width of the brace and then it doesn't fit anymore.
-            // It is not worth the complexity to align the height and width of the brace.
-            // So we do a rough approximation of the space needed for the brace based on the staves we have at this point.
-            // Additional Staff separations caused later are not respected.
-            // users can mitigate truncation with specfiying a systemLabelPaddingLeft.
-
-            // alternative idea for the future:
-            // - we could force the brace to the width we initially calculate here so it will not grow beyond that.
-            // - requires a feature to draw glyphs with a max-width or a horizontal stretch scale
-
-            let currentY: number = 0;
-            for (const staff of this.allStaves) {
-                staff.y = currentY;
-                staff.calculateHeightForAccolade();
-                currentY += staff.height;
-            }
-
-            let braceWidth = 0;
-            for (const b of this._brackets) {
-                b.updateCanPaint();
-                b.finalizeBracket(settings.display.resources.engravingSettings);
-                braceWidth = Math.max(braceWidth, b.width);
-            }
-
-            this.accoladeWidth += braceWidth;
-
-            this.width += this.accoladeWidth;
-            this.computedWidth += this.accoladeWidth;
-        } else {
-            for (const b of this._brackets) {
-                b.updateCanPaint();
-                b.finalizeBracket(settings.display.resources.engravingSettings);
+                this._trackNamesAccoladeContribution = this.accoladeWidth;
             }
         }
+
+        this._createInlineTuningGlyphs();
+        this.accoladeWidth += this._inlineTuningWidth;
+
+        let currentY: number = 0;
+        for (const staff of this.allStaves) {
+            staff.y = currentY;
+            staff.calculateHeightForAccolade();
+            currentY += staff.height;
+        }
+
+        let braceWidth = 0;
+        for (const b of this._brackets) {
+            b.updateCanPaint();
+            b.finalizeBracket(settings.display.resources.engravingSettings);
+            if (b.reservesAccoladeSpace) {
+                braceWidth = Math.max(braceWidth, b.width);
+            }
+        }
+
+        this.accoladeWidth += braceWidth;
+
+        this.width += this.accoladeWidth;
+        this.computedWidth += this.accoladeWidth;
+
+        this._accoladeVisibilityFingerprint = visibilityFingerprint;
+    }
+
+    /**
+     * Resets cross-bar staff state in {@link RenderStaff._sharedLayoutData}
+     * before `alignGlyphs` runs, so the max-of-idempotent
+     * `EffectInfo.onAlignGlyphs` writers start from a clean slate each cycle.
+     * Per-revert resets are handled separately by {@link RenderStaff.revertLastBar}.
+     */
+    public resetAllStavesSharedLayoutData(): void {
+        for (const s of this.allStaves) {
+            s.resetSharedLayoutData();
+        }
+    }
+
+    private _computeVisibilityFingerprint(): number {
+        // Pack one bit per staff into a numeric bitset. `* 2` (not `<< 1`) so
+        // we stay in JS double-precision safe-integer range; bitwise ops would
+        // cap at 32 bits. See `_accoladeVisibilityFingerprint` for the limit.
+        let fingerprint = 0;
+        for (const s of this.allStaves) {
+            fingerprint = fingerprint * 2 + (s.isVisible ? 1 : 0);
+        }
+        return fingerprint;
+    }
+
+    private _createInlineTuningGlyphs(): void {
+        this._inlineTuningGlyphs = [];
+        this._inlineTuningWidth = 0;
+
+        const score = this.layout.renderer.score!;
+        if (
+            this.index !== 0 ||
+            !this.layout.renderer.settings.notation.isNotationElementVisible(NotationElement.GuitarTuning) ||
+            !score.stylesheet.globalDisplayTuning ||
+            score.stylesheet.tuningDisplayMode !== TuningDisplayMode.Staff
+        ) {
+            return;
+        }
+
+        for (const staff of this.allStaves) {
+            if (!this._shouldCreateInlineTuningGlyph(staff)) {
+                continue;
+            }
+
+            const glyph = new InlineTuningGlyph(staff);
+            glyph.renderer = staff.barRenderers[0];
+            glyph.doLayout();
+            this._inlineTuningGlyphs.push(glyph);
+            this._inlineTuningWidth = Math.max(this._inlineTuningWidth, glyph.width);
+        }
+    }
+
+    private _shouldCreateInlineTuningGlyph(staff: RenderStaff): boolean {
+        const score = this.layout.renderer.score!;
+        if (!staff.isVisible || staff.staffId !== TabBarRenderer.StaffId) {
+            return false;
+        }
+
+        const modelStaff = staff.modelStaff;
+        if (
+            modelStaff.isPercussion ||
+            !modelStaff.isStringed ||
+            !modelStaff.showTablature ||
+            modelStaff.stringTuning.tunings.length === 0
+        ) {
+            return false;
+        }
+
+        const perTrackDisplayTuning = score.stylesheet.perTrackDisplayTuning;
+        return (
+            !perTrackDisplayTuning ||
+            !perTrackDisplayTuning.has(modelStaff.track.index) ||
+            perTrackDisplayTuning.get(modelStaff.track.index) !== false
+        );
+    }
+
+    private _getInlineTuningWidthForTrackGroup(group: StaffTrackGroup): number {
+        let width = 0;
+        for (const glyph of this._inlineTuningGlyphs) {
+            if (glyph.staff.staffTrackGroup === group) {
+                width = Math.max(width, glyph.width);
+            }
+        }
+        return width;
     }
 
     private _getStaffTrackGroup(track: Track): StaffTrackGroup | null {
@@ -874,6 +1021,7 @@ export class StaffSystem {
                                     g.staves[0].x -
                                     // left side of the bracket
                                     settings.display.accoladeBarPaddingRight -
+                                    this._getInlineTuningWidthForTrackGroup(g) -
                                     (g.bracket?.width ?? 0) -
                                     // padding between label and bracket
                                     settings.display.systemLabelPaddingRight;
@@ -909,6 +1057,8 @@ export class StaffSystem {
                 }
             }
 
+            this._paintInlineTunings(cx, cy, canvas);
+
             const needsSystemBarLine = !this.layout.renderer.score!.stylesheet.extendBarLines;
             if (this.allStaves.length > 0 && needsSystemBarLine) {
                 let previousStaffInBracket: RenderStaff | null = null;
@@ -941,6 +1091,19 @@ export class StaffSystem {
             //
             // Draw brackets
             this._paintBrackets(cx, cy, canvas);
+        }
+    }
+
+    private _paintInlineTunings(cx: number, cy: number, canvas: ICanvas): void {
+        const accoladeBarPaddingRight = this.layout.renderer.settings.display.accoladeBarPaddingRight;
+        for (const glyph of this._inlineTuningGlyphs) {
+            // Place labels between the track name and the bracket:
+            // shift the glyph's anchor left by the bracket's paint area
+            // (accolade bar padding + bracket width) so the tuning sits on the
+            // outside of the bracket rather than inside it.
+            const bracket = this._staffToBracket.has(glyph.staff) ? this._staffToBracket.get(glyph.staff)! : undefined;
+            const bracketOffset = bracket && bracket.width > 0 ? accoladeBarPaddingRight + bracket.width : 0;
+            glyph.paint(cx + glyph.staff.x - bracketOffset, cy + glyph.staff.y, canvas);
         }
     }
 
@@ -998,6 +1161,7 @@ export class StaffSystem {
     }
 
     public finalizeSystem(): void {
+        Profiler.begin('layout.finalizeSystem');
         const settings = this.layout.renderer.settings;
         if (this.index === 0) {
             this.topPadding = settings.display.firstSystemPaddingTop;
@@ -1031,6 +1195,66 @@ export class StaffSystem {
         for (const b of this._brackets!) {
             b.finalizeBracket(settings.display.resources.engravingSettings);
         }
+        Profiler.end('layout.finalizeSystem');
+    }
+
+    /**
+     * Calculates the additional vertical space needed between two adjacent staves so that
+     * their content (skylines) keeps at least the given padding.
+     * @param upper The upper staff (already positioned and finalized).
+     * @param lower The lower staff (finalized, positioned directly below `upper`).
+     * @param padding The minimum padding between the content of the staves.
+     * @returns The additional space to add between the staves (0 if the existing space is enough).
+     */
+    private static _requiredStaffContentPadding(
+        upper: RenderStaff,
+        lower: RenderStaff,
+        padding: number,
+        horizontalPadding: number
+    ): number {
+        const upperSky = upper.systemSkyline.downSky;
+        const lowerSky = lower.systemSkyline.upSky;
+
+        // the maximum combined extent of both staves into the space between them.
+        // content of the other staff horizontally closer than `horizontalPadding` to a segment counts as well
+        // (e.g. a fingering number right next to a stem of the staff above).
+        let contentExtent = 0;
+        for (let i = 0, n = upperSky.segmentCount; i < n; i++) {
+            const h = upperSky.segmentHeight(i);
+            if (h > 0) {
+                const combined =
+                    h +
+                    lowerSky.maxHeightInRange(
+                        upperSky.segmentXStart(i) - horizontalPadding,
+                        upperSky.segmentXEnd(i) + horizontalPadding
+                    );
+                if (combined > contentExtent) {
+                    contentExtent = combined;
+                }
+            }
+        }
+        for (let i = 0, n = lowerSky.segmentCount; i < n; i++) {
+            const h = lowerSky.segmentHeight(i);
+            if (h > 0) {
+                const combined =
+                    h +
+                    upperSky.maxHeightInRange(
+                        lowerSky.segmentXStart(i) - horizontalPadding,
+                        lowerSky.segmentXEnd(i) + horizontalPadding
+                    );
+                if (combined > contentExtent) {
+                    contentExtent = combined;
+                }
+            }
+        }
+
+        if (contentExtent <= 0) {
+            return 0;
+        }
+
+        const available = lower.contentTop - upper.contentBottom;
+        const missing = contentExtent + padding - available;
+        return missing > 0 ? Math.ceil(missing) : 0;
     }
 
     private _finalizeTrackGroups(onlyFirstGroup: boolean = false) {
@@ -1062,6 +1286,19 @@ export class StaffSystem {
                     }
                 }
 
+                // the bracket spike curls into the first bar of whichever staff it is
+                // anchored on; register that horizontal footprint in the bar's own skyline
+                // so bar-attached content (e.g. the bar number) shifts out of its way
+                // instead of being drawn underneath it.
+                if (hasBracket && bracket!.firstVisibleStaffInBracket !== bracket!.lastVisibleStaffInBracket) {
+                    if (bracket!.firstVisibleStaffInBracket === staff) {
+                        this._registerBracketSpikeSkyline(staff, true);
+                    }
+                    if (bracket!.lastVisibleStaffInBracket === staff) {
+                        this._registerBracketSpikeSkyline(staff, false);
+                    }
+                }
+
                 staff.x = this.accoladeWidth;
                 staff.y = currentY;
                 if (!onlyFirstGroup) {
@@ -1069,6 +1306,21 @@ export class StaffSystem {
                 }
 
                 if (staff.isVisible) {
+                    // ensure the content of adjacent staves keeps a minimum padding
+                    // (only adds space where the content actually comes too close)
+                    if (previousStaff !== undefined && !onlyFirstGroup) {
+                        const extra = StaffSystem._requiredStaffContentPadding(
+                            previousStaff,
+                            staff,
+                            smufl.staffContentPadding,
+                            smufl.beatContentPadding
+                        );
+                        if (extra > 0) {
+                            staff.y += extra;
+                            currentY += extra;
+                        }
+                    }
+
                     currentY += staff.height;
 
                     anyStaffVisible = true;
@@ -1113,6 +1365,41 @@ export class StaffSystem {
         this._contentHeight = currentY;
 
         return anyStaffVisible;
+    }
+
+    /**
+     * Registers the horizontal footprint of the bracket's top/bottom spike glyph (see
+     * `_paintBrackets`'s `spikeX`) into the first bar renderer's own skyline. The spike is
+     * anchored just left of the staff's content area but its glyph bbox extends `glyphWidth`
+     * to the right, which can reach past the accolade into the first bar. Without this, content
+     * placed at the top/bottom of that bar (e.g. the bar number) doesn't know to avoid it.
+     */
+    private _registerBracketSpikeSkyline(staff: RenderStaff, isTop: boolean): void {
+        if (staff.barRenderers.length === 0) {
+            return;
+        }
+
+        const settings = this.layout.renderer.settings;
+        const smufl = settings.display.resources.engravingSettings;
+        const symbol = isTop ? MusicFontSymbol.BracketTop : MusicFontSymbol.BracketBottom;
+        const glyphWidth = smufl.glyphWidths.get(symbol)!;
+        const glyphHeight = smufl.glyphHeights.get(symbol)!;
+        const barOffset = settings.display.accoladeBarPaddingRight;
+
+        const intrusion = glyphWidth - barOffset - smufl.bracketThickness;
+        if (intrusion <= 0) {
+            return;
+        }
+
+        // brackets typically overflow their content range by 1/4 staff-space (see `_paintBrackets`)
+        const height = glyphHeight + smufl.oneStaffSpace * 0.25;
+
+        const firstBar = staff.barRenderers[0];
+        if (isTop) {
+            firstBar.insertSkylineTop(0, intrusion, height);
+        } else {
+            firstBar.insertSkylineBottom(0, intrusion, height);
+        }
     }
 
     public buildBoundingsLookup(cx: number, cy: number): void {

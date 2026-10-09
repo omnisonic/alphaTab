@@ -11,6 +11,9 @@ import { NoteAccidentalMode } from '@coderline/alphatab/model/NoteAccidentalMode
 import { Ottavia } from '@coderline/alphatab/model/Ottavia';
 import { SlideInType } from '@coderline/alphatab/model/SlideInType';
 import { SlideOutType } from '@coderline/alphatab/model/SlideOutType';
+import { Slur } from '@coderline/alphatab/model/Slur';
+import type { SlurSegment } from '@coderline/alphatab/model/SlurSegment';
+import { SlurSegmentKind } from '@coderline/alphatab/model/SlurSegmentKind';
 import type { Staff } from '@coderline/alphatab/model/Staff';
 import { VibratoType } from '@coderline/alphatab/model/VibratoType';
 import { NotationMode } from '@coderline/alphatab/NotationSettings';
@@ -202,43 +205,46 @@ export class Note {
     }
 
     public get isStringed(): boolean {
-        return this.string >= 0;
+        return !Number.isNaN(this.string) && !Number.isNaN(this.fret);
     }
 
     /**
      * Gets or sets the fret on which this note is played on the instrument.
      * 0 is the nut.
      */
-    public fret: number = -1;
+    public fret: number = Number.NaN;
 
     /**
      * Gets or sets the string number where the note is placed.
      * 1 is the lowest string on the guitar and the bottom line on the tablature.
      * It then increases the the number of strings on available on the track.
+     * On pitched notes (no fret) the string is only an annotation shown via {@link showStringNumber}
+     * and has no effect on playback. Staves without tuning assume a standard 6 string instrument for this case.
      */
-    public string: number = -1;
+    public string: number = Number.NaN;
 
     /**
      * Gets or sets whether the string number for this note should be shown.
+     * For pitched notes this requires {@link string} to be set.
      */
     public showStringNumber: boolean = false;
 
     public get isPiano(): boolean {
-        return !this.isStringed && this.octave >= 0 && this.tone >= 0;
+        return !this.isStringed && !Number.isNaN(this.octave) && !Number.isNaN(this.tone);
     }
 
     /**
      * Gets or sets the octave on which this note is played.
      */
-    public octave: number = -1;
+    public octave: number = Number.NaN;
 
     /**
      * Gets or sets the tone of this note within the octave.
      */
-    public tone: number = -1;
+    public tone: number = Number.NaN;
 
     public get isPercussion(): boolean {
-        return !this.isStringed && this.percussionArticulation >= 0;
+        return !Number.isNaN(this.percussionArticulation);
     }
 
     /**
@@ -356,7 +362,7 @@ export class Note {
      * - 126 Ride (middle)
      * - 127 Ride (bell)
      */
-    public percussionArticulation: number = -1;
+    public percussionArticulation: number = Number.NaN;
 
     /**
      * Gets or sets whether this note is visible on the music sheet.
@@ -605,6 +611,26 @@ export class Note {
     public effectSlurDestination: Note | null = null;
 
     /**
+     * The {@link Slur} object whose origin is this note. Populated by
+     * `finish()`; non-null only on the chain-origin note of an effect
+     * slur. Carries the inner articulation segments used by the
+     * renderer to paint H/P/sl. labels along the arc.
+     * @clone_ignore
+     * @json_ignore
+     * @internal
+     */
+    public effectSlur: Slur | null = null;
+
+    /**
+     * The {@link SlurSegment} of the effect slur chain starting at this note
+     * (hammer-on, pull-off or legato slide to the next note). Populated by `finish()`.
+     * @clone_ignore
+     * @json_ignore
+     * @internal
+     */
+    public effectSlurSegment: SlurSegment | null = null;
+
+    /**
      * The ornament applied on the note.
      */
     public ornament: NoteOrnament = NoteOrnament.None;
@@ -620,10 +646,24 @@ export class Note {
     }
 
     public static getStringTuning(staff: Staff, noteString: number): number {
-        if (staff.tuning.length > 0) {
+        if (staff.tuning.length > 0 && noteString >= 0) {
             return staff.tuning[staff.tuning.length - (noteString - 1) - 1];
         }
         return 0;
+    }
+
+    /**
+     * The number of strings assumed for string number annotations on staves without tuning.
+     */
+    private static readonly _defaultAnnotationStringCount: number = 6;
+
+    /**
+     * Gets the number of strings to which {@link string} relates on the given staff.
+     * Staves without tuning assume a standard 6 string instrument (used for string number annotations on pitched notes).
+     * @internal
+     */
+    public static getStringCount(staff: Staff): number {
+        return staff.tuning.length > 0 ? staff.tuning.length : Note._defaultAnnotationStringCount;
     }
 
     public get realValue(): number {
@@ -656,7 +696,8 @@ export class Note {
         }
 
         if (this.isPercussion) {
-            return this.percussionArticulation;
+            const art = PercussionMapper.getArticulation(this);
+            return art !== null ? art.outputMidiNumber : this.percussionArticulation;
         }
         if (this.isStringed) {
             return this.fret + this.stringTuning - transpositionPitch;
@@ -905,22 +946,56 @@ export class Note {
                 }
                 break;
         }
+        this.effectSlurSegment = null;
         let effectSlurDestination: Note | null = null;
+        let effectSlurSegmentKind: SlurSegmentKind | null = null;
         if (this.isHammerPullOrigin && this.hammerPullDestination) {
             effectSlurDestination = this.hammerPullDestination;
+            effectSlurSegmentKind = SlurSegmentKind.HammerPull;
         } else if (this.slideOutType === SlideOutType.Legato && this.slideTarget) {
             effectSlurDestination = this.slideTarget;
+            effectSlurSegmentKind = SlurSegmentKind.LegatoSlide;
         }
         if (effectSlurDestination) {
             this.hasEffectSlur = true;
             if (this.effectSlurOrigin && this.beat.pickStroke === PickStroke.None) {
-                this.effectSlurOrigin.effectSlurDestination = effectSlurDestination;
-                this.effectSlurOrigin.effectSlurDestination.effectSlurOrigin = this.effectSlurOrigin;
+                const chainOrigin = this.effectSlurOrigin;
+                chainOrigin.effectSlurDestination = effectSlurDestination;
+                effectSlurDestination.effectSlurOrigin = chainOrigin;
                 this.effectSlurOrigin = null;
+
+                if (effectSlurSegmentKind !== null && chainOrigin.effectSlur !== null) {
+                    chainOrigin.effectSlur.destinationNote = effectSlurDestination;
+                    const segment: SlurSegment = {
+                        fromNote: this,
+                        toNote: effectSlurDestination,
+                        kind: effectSlurSegmentKind,
+                        text: null
+                    };
+                    chainOrigin.effectSlur.segments.push(segment);
+                    this.effectSlurSegment = segment;
+                }
             } else {
                 this.isEffectSlurOrigin = true;
                 this.effectSlurDestination = effectSlurDestination;
-                this.effectSlurDestination.effectSlurOrigin = this;
+                effectSlurDestination.effectSlurOrigin = this;
+
+                // Always allocate a fresh Slur — finish() may run twice (worker re-finish);
+                // overwriting unconditionally keeps the derivation idempotent.
+                const slur = new Slur();
+                slur.originNote = this;
+                slur.destinationNote = effectSlurDestination;
+                if (effectSlurSegmentKind !== null) {
+                    const segment: SlurSegment = {
+                        fromNote: this,
+                        toNote: effectSlurDestination,
+                        kind: effectSlurSegmentKind,
+                        text: null
+                    };
+                    slur.segments.push(segment);
+                    this.effectSlurSegment = segment;
+                }
+                this.effectSlur = slur;
             }
         }
         // try to detect what kind of bend was used and cleans unneeded points if required
@@ -1129,7 +1204,7 @@ export class Note {
                     return noteOnString;
                 }
             } else {
-                if (note.octave === -1 && note.tone === -1) {
+                if (Number.isNaN(note.octave) && Number.isNaN(note.tone)) {
                     // if the note has no value (e.g. alphaTex dash tie), we try to find a matching
                     // note on the previous beat by index.
                     if (note.index < previousBeat.notes.length) {

@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { AlphaTexExporter } from '@coderline/alphatab/exporter/AlphaTexExporter';
 import { AlphaTexErrorWithDiagnostics } from '@coderline/alphatab/importer/AlphaTexImporter';
 import { ScoreLoader } from '@coderline/alphatab/importer/ScoreLoader';
@@ -135,7 +135,17 @@ describe('AlphaTexExporterTest', () => {
     });
 
     it('visual-effects-and-annotations', async () => {
-        await testRoundTripFolderEqual('visual-tests/effects-and-annotations', ['hidden-dots.mxml']);
+        await testRoundTripFolderEqual('visual-tests/effects-and-annotations', [
+            'hidden-dots.mxml',
+            'string-numbers-pitched.mxml'
+        ]);
+    });
+
+    it('musicxml-string-numbers-pitched', async () => {
+        // MusicXML always specifies an explicit display duration which alphaTex does not need
+        await testRoundTripEqual('visual-tests/effects-and-annotations/string-numbers-pitched.mxml', [
+            'overridedisplayduration'
+        ]);
     });
 
     it('visual-general', async () => {
@@ -180,5 +190,20 @@ describe('AlphaTexExporterTest', () => {
 
     it('gp7-to-alphaTex', async () => {
         await testRoundTripEqual(`conversion/full-song.gp`);
+    });
+
+    it('accidental-mode-only-when-needed', () => {
+        // in F major: F# needs a hint (default spelling is Gb), Gb, Bb and B natural are spelled like this by default
+        const score = ScoreLoader.loadAlphaTex(
+            '\\instrument piano \\tuning piano \\ks f . F#4.4 Gb4.4 Bb4.4 B4{acc n}.4'
+        );
+        const exported = exportAlphaTex(score);
+
+        expect(exported).toContain('Gb4{acc #}.4');
+        const firstAccidental = exported.indexOf('acc ');
+        expect(exported.indexOf('acc ', firstAccidental + 1)).toBe(-1);
+
+        const reimported = ScoreLoader.loadAlphaTex(exported);
+        ComparisonHelpers.alphaTexExportRoundtripEqual('accidental-mode-only-when-needed', reimported, score);
     });
 });
