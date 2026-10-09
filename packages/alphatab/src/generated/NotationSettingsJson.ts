@@ -72,17 +72,6 @@ export interface NotationSettingsJson {
      */
     fingeringMode?: FingeringMode | keyof typeof FingeringMode | Lowercase<keyof typeof FingeringMode>;
     /**
-     * Whether right-hand fingerings of the lower voices are shown.
-     * @since 1.9.0
-     * @category Notation
-     * @defaultValue `false`
-     * @remarks
-     * Only applies when {@link fingeringMode} is {@link FingeringMode.ScoreRightHandEffectBand}. Right-hand fingerings
-     * of the lower voices (typically the thumb on bass notes) are commonly omitted in guitar scores. When enabled,
-     * they are shown in an effect band below the staff.
-     */
-    showLowerVoiceRightHandFingering?: boolean;
-    /**
      * Whether music notation elements are visible or not.
      * @since 0.9.8
      * @category Notation

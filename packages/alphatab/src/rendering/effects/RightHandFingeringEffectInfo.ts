@@ -22,7 +22,7 @@ function rightHandNotes(beat: Beat): Note[] {
 
 /**
  * Right-hand fingerings for {@link FingeringMode.ScoreRightHandEffectBand}: the first voice above the staff,
- * the other voices (if enabled via {@link NotationSettings.showLowerVoiceRightHandFingering}) below the staff.
+ * the other voices below the staff.
  */
 function createRightHandFingeringEffectInfo(effectId: string, upperVoice: boolean): EffectInfo {
     return {
@@ -31,12 +31,11 @@ function createRightHandFingeringEffectInfo(effectId: string, upperVoice: boolea
         hideOnMultiTrack: false,
         sizingMode: EffectBarGlyphSizing.SingleOnBeat,
         shouldCreateGlyph: (renderer: BarRendererBase, beat: Beat): boolean => {
-            const notation = renderer.settings.notation;
-            if (beat.isRest || notation.fingeringMode !== FingeringMode.ScoreRightHandEffectBand) {
-                return false;
-            }
-            const isUpperVoice = beat.voice.index === 0;
-            if (upperVoice !== isUpperVoice || (!upperVoice && !notation.showLowerVoiceRightHandFingering)) {
+            if (
+                beat.isRest ||
+                renderer.settings.notation.fingeringMode !== FingeringMode.ScoreRightHandEffectBand ||
+                upperVoice !== (beat.voice.index === 0)
+            ) {
                 return false;
             }
             return rightHandNotes(beat).length > 0;
