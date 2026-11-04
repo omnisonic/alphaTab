@@ -196,6 +196,47 @@ export class MidiFileSequencer {
         }
     }
 
+    /**
+     * Seamless loop wrap: moves the main sequence from the playback range end back to
+     * its start without killing voices or resetting channels (unlike {@link mainSeek}),
+     * so synthesis can continue into the same output buffer with no gap.
+     * The overshoot past the range end (up to one micro-buffer) is carried over so
+     * the loop period stays exact across passes; events between the range start and
+     * that point still play (in the next micro-buffer), so a note right on the range
+     * start is never skipped. Channel state at the range start is restored by
+     * replaying control/program/pitch-bend events before it (no notes), so e.g. a
+     * bend still held at the loop end doesn't leak into the next pass.
+     * @returns the new main time position (speed applied), or -1 if no range is set.
+     */
+    public mainLoopWrap(): number {
+        const state = this._mainState;
+        if (!this.mainPlaybackRange || !this.isPlayingMain) {
+            return -1;
+        }
+        const start = state.playbackRangeStartTime;
+        const loopLength = state.playbackRangeEndTime - start;
+        const overshoot = Math.max(0, state.currentTime - state.playbackRangeEndTime);
+        const target = start + (loopLength > 0 ? overshoot % loopLength : 0);
+
+        let index = 0;
+        const data = state.synthData;
+        while (index < data.length && data[index].time < start) {
+            const e = data[index];
+            switch (e.event.type) {
+                case MidiEventType.ControlChange:
+                case MidiEventType.ProgramChange:
+                case MidiEventType.PitchBend:
+                    this._synthesizer.dispatchEvent(e);
+                    break;
+            }
+            index++;
+        }
+
+        state.eventIndex = index;
+        state.currentTime = target;
+        return target / this.playbackSpeed;
+    }
+
     private _mainSilentProcess(milliseconds: number): void {
         if (milliseconds <= 0) {
             return;

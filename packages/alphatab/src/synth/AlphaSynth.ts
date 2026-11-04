@@ -61,6 +61,14 @@ export class AlphaSynthBase implements IAlphaSynth {
     protected playedEventsQueue: Queue<SynthEvent> = new Queue<SynthEvent>();
     protected midiEventsPlayedFilterSet: Set<MidiEventType> = new Set<MidiEventType>();
     private _notPlayedSamples: number = 0;
+    // Seamless looping: loop wraps already synthesized into the output buffer but
+    // not yet heard. The playhead jumps back when the wrap point is actually played.
+    private _pendingLoopWraps: PendingLoopWrap[] = [];
+    // Counts for playedEventsQueue so a wrap knows which queued events belong to
+    // the pass that just ended (their times are higher than the new position).
+    private _playedEventsEnqueued: number = 0;
+    private _playedEventsDequeued: number = 0;
+    private _isLoopWrapSeek: boolean = false;
     private _synthStopping = false;
     private _output: ISynthOutput;
     private _loadedMidiInfo?: PositionChangedEventArgs;
@@ -173,6 +181,7 @@ export class AlphaSynthBase implements IAlphaSynth {
         // tell the output to reset the already synthesized buffers and request data again
         if (this.sequencer.isPlayingMain) {
             this._notPlayedSamples = 0;
+            this._pendingLoopWraps = [];
             this.output.resetSamples();
         }
     }
@@ -279,10 +288,16 @@ export class AlphaSynthBase implements IAlphaSynth {
                 for (const e of synthesizedEvents) {
                     if (this.midiEventsPlayedFilterSet.has(e.event.type)) {
                         this.playedEventsQueue.enqueue(e);
+                        this._playedEventsEnqueued++;
                     }
                 }
                 // tell sequencer to check whether its work is done
                 if (this.sequencer.isFinished) {
+                    if (this._canLoopSeamlessly()) {
+                        // keep synthesizing from the range start into this same buffer
+                        this._wrapLoopInBuffer(bufferPos);
+                        continue;
+                    }
                     break;
                 }
             }
@@ -311,6 +326,61 @@ export class AlphaSynthBase implements IAlphaSynth {
             const samples: Float32Array = new Float32Array(0);
             this.output.addSamples(samples);
         }
+    }
+
+    /**
+     * Seamless looping is used for a looped playback range of the main song. Other
+     * cases (count-in, one-time midi, looping the whole song) keep the classic
+     * drain-then-seek behavior in {@link checkForFinish}.
+     */
+    private _canLoopSeamlessly(): boolean {
+        return this.isLooping && this.sequencer.isPlayingMain && !!this.sequencer.mainPlaybackRange;
+    }
+
+    /**
+     * Called while filling a sample request when the sequencer reached the range end:
+     * rewinds the sequencer to the range start and records where in the output stream
+     * the wrap happens, so the reported position jumps back exactly when it is heard.
+     * Voices still sounding are released with their natural envelope instead of being
+     * quick-killed, so notes ringing into the loop point don't click.
+     * @param bufferPos interleaved samples already written in the current request
+     */
+    private _wrapLoopInBuffer(bufferPos: number) {
+        this.synthesizer.noteOffAll(false);
+        const time = this.sequencer.mainLoopWrap();
+        const wrap = new PendingLoopWrap();
+        wrap.samplesUntil = this._notPlayedSamples + bufferPos;
+        wrap.timePosition = time;
+        wrap.eventMarker = this._playedEventsEnqueued;
+        this._pendingLoopWraps.push(wrap);
+        Logger.debug('AlphaSynth', `Seamless loop wrap synthesized (heard in ${wrap.samplesUntil} samples)`);
+    }
+
+    /**
+     * The output reached a wrap point: report the remaining events of the pass that
+     * ended, signal finished (one loop pass done), and jump the position back.
+     */
+    private _applyLoopWrap(wrap: PendingLoopWrap, overflowMillis: number) {
+        const playedEvents: MidiEvent[] = [];
+        while (!this.playedEventsQueue.isEmpty && this._playedEventsDequeued < wrap.eventMarker) {
+            playedEvents.push(this.playedEventsQueue.dequeue()!.event);
+            this._playedEventsDequeued++;
+        }
+        if (playedEvents.length > 0) {
+            playedEvents.reverse();
+            (this.midiEventsPlayed as EventEmitterOfT<MidiEventsPlayedEventArgs>).trigger(
+                new MidiEventsPlayedEventArgs(playedEvents)
+            );
+        }
+
+        Logger.debug('AlphaSynth', 'Finished playback (main looping, seamless)');
+        (this.finished as EventEmitter).trigger();
+
+        // report as a seek (cursor jumps instead of animating backwards) but keep the
+        // queued events of the new pass, which were synthesized after the wrap
+        this._isLoopWrapSeek = true;
+        this.updateTimePosition(wrap.timePosition + overflowMillis, true);
+        this._isLoopWrapSeek = false;
     }
 
     public play(): boolean {
@@ -376,6 +446,7 @@ export class AlphaSynthBase implements IAlphaSynth {
         this.state = PlayerState.Paused;
         this.output.pause();
         this._notPlayedSamples = 0;
+        this._pendingLoopWraps = [];
         this.sequencer.stop();
         this.synthesizer.noteOffAll(true);
         this.tickPosition = this.sequencer.mainPlaybackRange ? this.sequencer.mainPlaybackRange.startTick : 0;
@@ -400,6 +471,7 @@ export class AlphaSynthBase implements IAlphaSynth {
 
         // tell the output to reset the already synthesized buffers and request data again
         this._notPlayedSamples = 0;
+        this._pendingLoopWraps = [];
         this.output.resetSamples();
 
         this.output.activate();
@@ -516,12 +588,35 @@ export class AlphaSynthBase implements IAlphaSynth {
             return;
         }
         const playedMillis: number = (sampleCount / this.synthesizer.outSampleRate) * 1000;
-        this._notPlayedSamples -= sampleCount * SynthConstants.AudioChannels;
-        this.updateTimePosition(this._timePosition + playedMillis, false);
+        const playedSamples = sampleCount * SynthConstants.AudioChannels;
+        this._notPlayedSamples -= playedSamples;
+
+        let wrapped = false;
+        for (const w of this._pendingLoopWraps) {
+            w.samplesUntil -= playedSamples;
+        }
+        while (this._pendingLoopWraps.length > 0 && this._pendingLoopWraps[0].samplesUntil <= 0) {
+            const w = this._pendingLoopWraps.shift()!;
+            const overflowMillis =
+                (-w.samplesUntil / SynthConstants.AudioChannels / this.synthesizer.outSampleRate) * 1000;
+            this._applyLoopWrap(w, overflowMillis);
+            wrapped = true;
+        }
+
+        if (!wrapped) {
+            this.updateTimePosition(this._timePosition + playedMillis, false);
+        }
         this.checkForFinish();
     }
 
     protected checkForFinish() {
+        // A seamless loop wrap is already in the output buffer: the position reaches the
+        // range end a fraction of a micro-buffer before the wrap is heard. Don't treat
+        // that as the end (it would quick-kill the voices of the next pass).
+        if (this._pendingLoopWraps.length > 0) {
+            return;
+        }
+
         let startTick = 0;
         let endTick = 0;
 
@@ -629,11 +724,16 @@ export class AlphaSynthBase implements IAlphaSynth {
 
         // build events which were actually played
         if (isSeek) {
-            this.playedEventsQueue.clear();
+            if (!this._isLoopWrapSeek) {
+                this.playedEventsQueue.clear();
+                this._playedEventsEnqueued = 0;
+                this._playedEventsDequeued = 0;
+            }
         } else {
             const playedEvents: MidiEvent[] = [];
             while (!this.playedEventsQueue.isEmpty && this.playedEventsQueue.peek()!.time < args.currentTime) {
                 const synthEvent = this.playedEventsQueue.dequeue()!;
+                this._playedEventsDequeued++;
                 playedEvents.push(synthEvent.event);
             }
             if (playedEvents.length > 0) {
@@ -694,6 +794,19 @@ export class AlphaSynthBase implements IAlphaSynth {
     public updateSyncPoints(_syncPoints: BackingTrackSyncPoint[]): void {
         // ignore
     }
+}
+
+/**
+ * A seamless loop wrap that is synthesized into the output buffer but not yet heard.
+ * @internal
+ */
+class PendingLoopWrap {
+    /** Interleaved samples still to be played before the wrap point. */
+    public samplesUntil: number = 0;
+    /** Main time position (speed applied) at the wrap point. */
+    public timePosition: number = 0;
+    /** playedEventsQueue enqueue count at the wrap: earlier events belong to the ended pass. */
+    public eventMarker: number = 0;
 }
 
 /**
