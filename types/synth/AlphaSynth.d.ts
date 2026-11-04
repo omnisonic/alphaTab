@@ -43,6 +43,10 @@ export declare class AlphaSynthBase implements IAlphaSynth {
     protected playedEventsQueue: Queue<SynthEvent>;
     protected midiEventsPlayedFilterSet: Set<MidiEventType>;
     private _notPlayedSamples;
+    private _pendingLoopWraps;
+    private _playedEventsEnqueued;
+    private _playedEventsDequeued;
+    private _isLoopWrapSeek;
     private _synthStopping;
     private _output;
     private _loadedMidiInfo?;
@@ -83,6 +87,26 @@ export declare class AlphaSynthBase implements IAlphaSynth {
      */
     constructor(output: ISynthOutput, synthesizer: IAudioSampleSynthesizer, bufferTimeInMilliseconds: number);
     protected onSampleRequest(): void;
+    /**
+     * Seamless looping is used for a looped playback range of the main song. Other
+     * cases (count-in, one-time midi, looping the whole song) keep the classic
+     * drain-then-seek behavior in {@link checkForFinish}.
+     */
+    private _canLoopSeamlessly;
+    /**
+     * Called while filling a sample request when the sequencer reached the range end:
+     * rewinds the sequencer to the range start and records where in the output stream
+     * the wrap happens, so the reported position jumps back exactly when it is heard.
+     * Voices still sounding are released with their natural envelope instead of being
+     * quick-killed, so notes ringing into the loop point don't click.
+     * @param bufferPos interleaved samples already written in the current request
+     */
+    private _wrapLoopInBuffer;
+    /**
+     * The output reached a wrap point: report the remaining events of the pass that
+     * ended, signal finished (one loop pass done), and jump the position back.
+     */
+    private _applyLoopWrap;
     play(): boolean;
     private _playInternal;
     pause(): void;

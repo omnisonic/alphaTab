@@ -82,6 +82,19 @@ export declare class MidiFileSequencer {
      */
     playbackSpeed: number;
     mainSeek(timePosition: number): void;
+    /**
+     * Seamless loop wrap: moves the main sequence from the playback range end back to
+     * its start without killing voices or resetting channels (unlike {@link mainSeek}),
+     * so synthesis can continue into the same output buffer with no gap.
+     * The overshoot past the range end (up to one micro-buffer) is carried over so
+     * the loop period stays exact across passes; events between the range start and
+     * that point still play (in the next micro-buffer), so a note right on the range
+     * start is never skipped. Channel state at the range start is restored by
+     * replaying control/program/pitch-bend events before it (no notes), so e.g. a
+     * bend still held at the loop end doesn't leak into the next pass.
+     * @returns the new main time position (speed applied), or -1 if no range is set.
+     */
+    mainLoopWrap(): number;
     private _mainSilentProcess;
     loadOneTimeMidi(midiFile: MidiFile): void;
     instrumentPrograms: Set<number>;
