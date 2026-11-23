@@ -34,4 +34,17 @@ export declare class MidiUtils {
     static applyTuplet(ticks: number, numerator: number, denominator: number): number;
     static removeTuplet(ticks: number, numerator: number, denominator: number): number;
     static dynamicToVelocity(dynamicValue: DynamicValue, adjustment?: number): number;
+    /**
+     * Fixed (not user-configurable) dynamics compression for synthesized playback.
+     * Linearly maps the raw dynamic range (ppp=15 .. fff=127) onto
+     * CompressedMinVelocity..127, so notated dynamics stay audible as relative
+     * differences but quiet passages don't drop out (mf ~ -1.9 dB instead of -4.1 dB,
+     * p ~ -3.4 dB instead of -8.6 dB). Raw velocities below ppp scale proportionally.
+     */
+    static readonly CompressedMinVelocity: number;
+    /**
+     * One dynamic step (VelocityIncrement) expressed in the compressed velocity range.
+     */
+    static readonly CompressedVelocityIncrement: number;
+    static compressVelocity(velocity: number): number;
 }

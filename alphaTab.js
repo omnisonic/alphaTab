@@ -191,8 +191,8 @@
 	*/
 	var VersionInfo = class VersionInfo {
 		static version = "1.9.0";
-		static date = "2026-11-04T04:07:12.475Z";
-		static commit = "5da98aaa883dcf1cbfd5650d6a88ff11dea1a223";
+		static date = "2026-11-23T17:32:47.046Z";
+		static commit = "8578315c092e02bb506814e51ed4a5c928821f45";
 		static print(print) {
 			print(`alphaTab ${VersionInfo.version}`);
 			print(`commit: ${VersionInfo.commit}`);
@@ -413,7 +413,28 @@
 				case DynamicValue.PF: velocity = MidiUtils._minVelocity + (4.5 * MidiUtils.VelocityIncrement | 0);
 			}
 			velocity += adjustment * MidiUtils.VelocityIncrement;
-			return Math.min(Math.max(velocity, 1), 127);
+			velocity = Math.min(Math.max(velocity, 1), 127);
+			return MidiUtils.compressVelocity(velocity);
+		}
+		/**
+		* Fixed (not user-configurable) dynamics compression for synthesized playback.
+		* Linearly maps the raw dynamic range (ppp=15 .. fff=127) onto
+		* CompressedMinVelocity..127, so notated dynamics stay audible as relative
+		* differences but quiet passages don't drop out (mf ~ -1.9 dB instead of -4.1 dB,
+		* p ~ -3.4 dB instead of -8.6 dB). Raw velocities below ppp scale proportionally.
+		*/
+		static CompressedMinVelocity = 70;
+		/**
+		* One dynamic step (VelocityIncrement) expressed in the compressed velocity range.
+		*/
+		static CompressedVelocityIncrement = Math.round(MidiUtils.VelocityIncrement * (127 - MidiUtils.CompressedMinVelocity) / (127 - MidiUtils._minVelocity));
+		static compressVelocity(velocity) {
+			const rawMin = MidiUtils._minVelocity;
+			const lo = MidiUtils.CompressedMinVelocity;
+			let v;
+			if (velocity >= rawMin) v = lo + (velocity - rawMin) * (127 - lo) / (127 - rawMin);
+			else v = velocity * lo / rawMin;
+			return Math.min(Math.max(Math.round(v), 1), 127);
 		}
 	};
 	//#endregion
@@ -26083,9 +26104,40 @@
 				context.close();
 			}
 		}
+		_masterBus = null;
+		/**
+		* Fixed (not user-configurable) master-bus limiter for synthesized playback.
+		* Chords and multi-track ensembles sum well above a single note, so the
+		* synth output passes through a fast, high-ratio compressor before the
+		* speakers. Web Audio's DynamicsCompressorNode applies automatic makeup
+		* gain, so this also lifts the overall level a few dB; peaks stay below
+		* full scale. Tune these constants here only.
+		*/
+		static _createMasterBus(ctx) {
+			try {
+				const limiter = ctx.createDynamicsCompressor();
+				limiter.threshold.value = -10;
+				limiter.knee.value = 6;
+				limiter.ratio.value = 12;
+				limiter.attack.value = .003;
+				limiter.release.value = .25;
+				limiter.connect(ctx.destination);
+				return limiter;
+			} catch (e) {
+				Logger.warning("WebAudio", `Could not create master limiter, using direct output: ${e}`);
+				return ctx.destination;
+			}
+		}
+		/**
+		* The node synthesized audio should connect to (master limiter -> destination).
+		*/
+		get masterBus() {
+			return this._masterBus ?? this.context.destination;
+		}
 		open(_bufferTimeInMilliseconds) {
 			this._patchIosSampleRate();
 			this.context = WebAudioHelper.createAudioContext();
+			this._masterBus = AlphaSynthWebAudioOutputBase._createMasterBus(this.context);
 			if (this.context.state === "suspended") this._registerResumeHandler();
 		}
 		_registerResumeHandler() {
@@ -26127,6 +26179,8 @@
 		}
 		destroy() {
 			this.pause();
+			this._masterBus?.disconnect();
+			this._masterBus = null;
 			this.context?.close();
 			this.context = null;
 			this._unregisterResumeHandler();
@@ -32162,7 +32216,7 @@
 			this.source.loop = true;
 			this.source.connect(this._audioNode, 0, 0);
 			this.source.start(0);
-			this._audioNode.connect(ctx.destination, 0, 0);
+			this._audioNode.connect(this.masterBus, 0, 0);
 		}
 		pause() {
 			super.pause();
@@ -41463,19 +41517,19 @@
 					return;
 				case ControllerType.VolumeCoarse:
 					c.midiVolume = TypeConversions.int32ToUint16(c.midiVolume & 127 | controlValue << 7);
-					this.channelSetVolume(channel, Math.pow(c.midiVolume / 16383 * (c.midiExpression / 16383), 3));
+					this.channelSetVolume(channel, Math.pow(c.midiVolume / 16383 * (c.midiExpression / 16383), 2));
 					return;
 				case ControllerType.VolumeFine:
 					c.midiVolume = TypeConversions.int32ToUint16(c.midiVolume & 16256 | controlValue);
-					this.channelSetVolume(channel, Math.pow(c.midiVolume / 16383 * (c.midiExpression / 16383), 3));
+					this.channelSetVolume(channel, Math.pow(c.midiVolume / 16383 * (c.midiExpression / 16383), 2));
 					return;
 				case ControllerType.ExpressionControllerCoarse:
 					c.midiExpression = TypeConversions.int32ToUint16(c.midiExpression & 127 | controlValue << 7);
-					this.channelSetVolume(channel, Math.pow(c.midiVolume / 16383 * (c.midiExpression / 16383), 3));
+					this.channelSetVolume(channel, Math.pow(c.midiVolume / 16383 * (c.midiExpression / 16383), 2));
 					return;
 				case ControllerType.ExpressionControllerFine:
 					c.midiExpression = TypeConversions.int32ToUint16(c.midiExpression & 16256 | controlValue);
-					this.channelSetVolume(channel, Math.pow(c.midiVolume / 16383 * (c.midiExpression / 16383), 3));
+					this.channelSetVolume(channel, Math.pow(c.midiVolume / 16383 * (c.midiExpression / 16383), 2));
 					return;
 				case ControllerType.PanCoarse:
 					c.midiPan = TypeConversions.int32ToUint16(c.midiPan & 127 | controlValue << 7);
@@ -43770,7 +43824,7 @@
 			this.createSource(ctx);
 			this.source.start(0);
 			this.source.connect(worklet);
-			worklet.connect(ctx.destination);
+			worklet.connect(this.masterBus);
 			for (const e of pendingEvents) worklet.port.postMessage(e);
 			if (this._pendingEvents === pendingEvents) this._pendingEvents = void 0;
 		}
@@ -45212,6 +45266,23 @@
 			this._score = score;
 			this._settings = !settings ? new Settings() : settings;
 			this._handler = handler;
+			this._volumeScale = MidiFileGenerator._computeVolumeScale(score);
+		}
+		/**
+		* Fixed (not user-configurable) track-volume normalization for synthesized playback.
+		* Guitar Pro faders default to ~0.8 and are often lower (0.5), which used to make
+		* every synth track several to ~20 dB quiet. Scale all track volumes so the loudest
+		* track of the score sits at full channel volume; relative balance between tracks
+		* (and volume automations/fades) is preserved.
+		*/
+		_volumeScale = 1;
+		static _computeVolumeScale(score) {
+			let max = 0;
+			for (const track of score.tracks) if (track.playbackInfo.volume > max) max = track.playbackInfo.volume;
+			return max > 0 ? 16 / max : 1;
+		}
+		_toChannelVolume(volume) {
+			return Math.min(127, MidiFileGenerator._toChannelShort(Math.min(16, volume * this._volumeScale)));
 		}
 		/**
 		* Starts the generation of the midi file.
@@ -45271,7 +45342,7 @@
 		_generateChannel(track, channel, playbackInfo) {
 			const transpositionPitch = track.index < this._settings.notation.transpositionPitches.length ? this._settings.notation.transpositionPitches[track.index] : -track.staves[0].transpositionPitch;
 			this.transpositionPitches.set(channel, transpositionPitch);
-			const volume = MidiFileGenerator._toChannelShort(playbackInfo.volume);
+			const volume = this._toChannelVolume(playbackInfo.volume);
 			const balance = MidiFileGenerator._toChannelShort(playbackInfo.balance);
 			this._handler.addControlChange(track.index, 0, channel, ControllerType.VolumeCoarse, volume);
 			this._handler.addControlChange(track.index, 0, channel, ControllerType.PanCoarse, balance);
@@ -45775,7 +45846,7 @@
 			}
 			let ornamentDurationFactor = 1;
 			if (noteDuration < MidiUtils.QuarterTime) ornamentDurationFactor = noteDuration / MidiUtils.QuarterTime;
-			velocity -= MidiUtils.VelocityIncrement;
+			velocity = Math.max(1, velocity - MidiUtils.CompressedVelocityIncrement);
 			let totalOrnamentDuration = 0;
 			for (let i = 0; i < ornamentNoteKeys.length; i++) {
 				const realDuration = ornamentNoteDurations[i] * ornamentDurationFactor;
@@ -45867,15 +45938,15 @@
 			const track = beat.voice.bar.staff.track;
 			switch (beat.fade) {
 				case FadeType.FadeIn:
-					this._generateFadeSteps(track, beatStart, beatDuration, 0, MidiFileGenerator._toChannelShort(track.playbackInfo.volume));
+					this._generateFadeSteps(track, beatStart, beatDuration, 0, this._toChannelVolume(track.playbackInfo.volume));
 					break;
 				case FadeType.FadeOut:
-					this._generateFadeSteps(track, beatStart, beatDuration, MidiFileGenerator._toChannelShort(track.playbackInfo.volume), 0);
+					this._generateFadeSteps(track, beatStart, beatDuration, this._toChannelVolume(track.playbackInfo.volume), 0);
 					break;
 				case FadeType.VolumeSwell:
 					const half = beatDuration / 2 | 0;
-					this._generateFadeSteps(track, beatStart, half, 0, MidiFileGenerator._toChannelShort(track.playbackInfo.volume));
-					this._generateFadeSteps(track, beatStart + half, half, MidiFileGenerator._toChannelShort(track.playbackInfo.volume), 0);
+					this._generateFadeSteps(track, beatStart, half, 0, this._toChannelVolume(track.playbackInfo.volume));
+					this._generateFadeSteps(track, beatStart + half, half, this._toChannelVolume(track.playbackInfo.volume), 0);
 			}
 		}
 		_generateFadeSteps(track, start, duration, startVolume, endVolume) {
@@ -46494,7 +46565,7 @@
 					this._handler.addControlChange(beat.voice.bar.staff.track.index, beat.playbackStart + startMove, beat.voice.bar.staff.track.playbackInfo.secondaryChannel, ControllerType.PanCoarse, balance);
 					break;
 				case AutomationType.Volume:
-					const volume = MidiFileGenerator._toChannelShort(automation.value);
+					const volume = this._toChannelVolume(automation.value);
 					this._handler.addControlChange(beat.voice.bar.staff.track.index, beat.playbackStart + startMove, beat.voice.bar.staff.track.playbackInfo.primaryChannel, ControllerType.VolumeCoarse, volume);
 					this._handler.addControlChange(beat.voice.bar.staff.track.index, beat.playbackStart + startMove, beat.voice.bar.staff.track.playbackInfo.secondaryChannel, ControllerType.VolumeCoarse, volume);
 			}
@@ -46523,7 +46594,7 @@
 			this._generateTrack(track);
 			this._handler.addTimeSignature(0, masterBar.timeSignatureNumerator, masterBar.timeSignatureDenominator);
 			this._handler.addTempo(0, tempo);
-			const volumeCoarse = MidiFileGenerator._toChannelShort(volume);
+			const volumeCoarse = this._toChannelVolume(volume);
 			this._handler.addControlChange(0, 0, track.playbackInfo.primaryChannel, ControllerType.VolumeCoarse, volumeCoarse);
 			this._handler.addControlChange(0, 0, track.playbackInfo.secondaryChannel, ControllerType.VolumeCoarse, volumeCoarse);
 			return tempo;

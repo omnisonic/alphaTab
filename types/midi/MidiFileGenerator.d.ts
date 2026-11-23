@@ -44,6 +44,16 @@ export declare class MidiFileGenerator {
      */
     constructor(score: Score, settings: Settings | null, handler: IMidiFileHandler);
     /**
+     * Fixed (not user-configurable) track-volume normalization for synthesized playback.
+     * Guitar Pro faders default to ~0.8 and are often lower (0.5), which used to make
+     * every synth track several to ~20 dB quiet. Scale all track volumes so the loudest
+     * track of the score sits at full channel volume; relative balance between tracks
+     * (and volume automations/fades) is preserved.
+     */
+    private _volumeScale;
+    private static _computeVolumeScale;
+    private _toChannelVolume;
+    /**
      * Starts the generation of the midi file.
      */
     generate(): void;

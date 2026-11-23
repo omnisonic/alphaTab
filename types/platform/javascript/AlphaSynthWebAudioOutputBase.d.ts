@@ -37,6 +37,20 @@ export declare abstract class AlphaSynthWebAudioOutputBase implements ISynthOutp
     get sampleRate(): number;
     activate(resumedCallback?: () => void): void;
     private _patchIosSampleRate;
+    private _masterBus;
+    /**
+     * Fixed (not user-configurable) master-bus limiter for synthesized playback.
+     * Chords and multi-track ensembles sum well above a single note, so the
+     * synth output passes through a fast, high-ratio compressor before the
+     * speakers. Web Audio's DynamicsCompressorNode applies automatic makeup
+     * gain, so this also lifts the overall level a few dB; peaks stay below
+     * full scale. Tune these constants here only.
+     */
+    private static _createMasterBus;
+    /**
+     * The node synthesized audio should connect to (master limiter -> destination).
+     */
+    protected get masterBus(): AudioNode;
     open(_bufferTimeInMilliseconds: number): void;
     private _registerResumeHandler;
     private _unregisterResumeHandler;
