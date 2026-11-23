@@ -36,7 +36,7 @@ export class AlphaSynthScriptProcessorOutput extends AlphaSynthWebAudioOutputBas
         this.source.loop = true;
         this.source.connect(this._audioNode, 0, 0);
         this.source.start(0);
-        this._audioNode.connect(ctx.destination, 0, 0);
+        this._audioNode.connect(this.masterBus, 0, 0);
     }
 
     public override pause(): void {

@@ -151,6 +151,35 @@ export class MidiUtils {
 
         // 0 would means note-off (not played) so we need a minimum of 1 to have still a note played
         velocity += adjustment * MidiUtils.VelocityIncrement;
-        return Math.min(Math.max(velocity, 1), 127);
+        velocity = Math.min(Math.max(velocity, 1), 127);
+        return MidiUtils.compressVelocity(velocity);
+    }
+
+    /**
+     * Fixed (not user-configurable) dynamics compression for synthesized playback.
+     * Linearly maps the raw dynamic range (ppp=15 .. fff=127) onto
+     * CompressedMinVelocity..127, so notated dynamics stay audible as relative
+     * differences but quiet passages don't drop out (mf ~ -1.9 dB instead of -4.1 dB,
+     * p ~ -3.4 dB instead of -8.6 dB). Raw velocities below ppp scale proportionally.
+     */
+    public static readonly CompressedMinVelocity: number = 70;
+
+    /**
+     * One dynamic step (VelocityIncrement) expressed in the compressed velocity range.
+     */
+    public static readonly CompressedVelocityIncrement: number = Math.round(
+        (MidiUtils.VelocityIncrement * (127 - MidiUtils.CompressedMinVelocity)) / (127 - MidiUtils._minVelocity)
+    );
+
+    public static compressVelocity(velocity: number): number {
+        const rawMin = MidiUtils._minVelocity;
+        const lo = MidiUtils.CompressedMinVelocity;
+        let v: number;
+        if (velocity >= rawMin) {
+            v = lo + ((velocity - rawMin) * (127 - lo)) / (127 - rawMin);
+        } else {
+            v = (velocity * lo) / rawMin;
+        }
+        return Math.min(Math.max(Math.round(v), 1), 127);
     }
 }

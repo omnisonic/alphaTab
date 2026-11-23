@@ -107,7 +107,7 @@ describe('MidiFileGeneratorTest', () => {
         const note: Note = score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes[0];
         const expectedEvents: FlatMidiEvent[] = [
             // channel init
-            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -118,7 +118,7 @@ describe('MidiFileGeneratorTest', () => {
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.BankSelectFine, 0),
             new FlatProgramChangeEvent(0, 0, info.primaryChannel, info.program),
 
-            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -227,7 +227,7 @@ describe('MidiFileGeneratorTest', () => {
         const mfVelocity = MidiUtils.dynamicToVelocity(DynamicValue.MF);
         const expectedEvents: FlatMidiEvent[] = [
             // channel init
-            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 96),
+            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -238,7 +238,7 @@ describe('MidiFileGeneratorTest', () => {
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.BankSelectFine, 0),
             new FlatProgramChangeEvent(0, 0, info.primaryChannel, info.program),
 
-            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 96),
+            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -312,7 +312,7 @@ describe('MidiFileGeneratorTest', () => {
         const note: Note = score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes[0];
         const expectedEvents: FlatMidiEvent[] = [
             // channel init
-            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -323,7 +323,7 @@ describe('MidiFileGeneratorTest', () => {
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.BankSelectFine, 0),
             new FlatProgramChangeEvent(0, 0, info.primaryChannel, info.program),
 
-            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -404,7 +404,7 @@ describe('MidiFileGeneratorTest', () => {
         const note: Note = score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes[0];
         const expectedEvents: FlatMidiEvent[] = [
             // channel init
-            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -415,7 +415,7 @@ describe('MidiFileGeneratorTest', () => {
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.BankSelectFine, 0),
             new FlatProgramChangeEvent(0, 0, info.primaryChannel, info.program),
 
-            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -488,7 +488,7 @@ describe('MidiFileGeneratorTest', () => {
         const note: Note = score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes[0];
         const expectedEvents: FlatMidiEvent[] = [
             // channel init
-            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -499,7 +499,7 @@ describe('MidiFileGeneratorTest', () => {
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.BankSelectFine, 0),
             new FlatProgramChangeEvent(0, 0, info.primaryChannel, info.program),
 
-            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -558,7 +558,7 @@ describe('MidiFileGeneratorTest', () => {
         const note: Note = score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes[0];
         const expectedEvents: FlatMidiEvent[] = [
             // channel init
-            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -569,7 +569,7 @@ describe('MidiFileGeneratorTest', () => {
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.BankSelectFine, 0),
             new FlatProgramChangeEvent(0, 0, info.primaryChannel, info.program),
 
-            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -761,7 +761,7 @@ describe('MidiFileGeneratorTest', () => {
         const note2: Note = score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes[1];
         const expectedEvents: FlatMidiEvent[] = [
             // channel init
-            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -772,7 +772,7 @@ describe('MidiFileGeneratorTest', () => {
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.BankSelectFine, 0),
             new FlatProgramChangeEvent(0, 0, info.primaryChannel, info.program),
 
-            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -884,7 +884,7 @@ describe('MidiFileGeneratorTest', () => {
         const note1: Note = score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes[0];
         const expectedEvents: FlatMidiEvent[] = [
             // channel init
-            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -895,7 +895,7 @@ describe('MidiFileGeneratorTest', () => {
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.BankSelectFine, 0),
             new FlatProgramChangeEvent(0, 0, info.primaryChannel, info.program),
 
-            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -959,7 +959,7 @@ describe('MidiFileGeneratorTest', () => {
         const note1: Note = score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes[0];
         const expectedEvents: FlatMidiEvent[] = [
             // channel init
-            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -970,7 +970,7 @@ describe('MidiFileGeneratorTest', () => {
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.BankSelectFine, 0),
             new FlatProgramChangeEvent(0, 0, info.primaryChannel, info.program),
 
-            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -1029,7 +1029,7 @@ describe('MidiFileGeneratorTest', () => {
         const note1: Note = score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes[0];
         const expectedEvents: FlatMidiEvent[] = [
             // channel init
-            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -1040,7 +1040,7 @@ describe('MidiFileGeneratorTest', () => {
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.BankSelectFine, 0),
             new FlatProgramChangeEvent(0, 0, info.primaryChannel, info.program),
 
-            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -1105,7 +1105,7 @@ describe('MidiFileGeneratorTest', () => {
         const note2: Note = score.tracks[0].staves[0].bars[0].voices[0].beats[2].notes[0];
         const expectedEvents: FlatMidiEvent[] = [
             // channel init
-            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 96),
+            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -1116,7 +1116,7 @@ describe('MidiFileGeneratorTest', () => {
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.BankSelectFine, 0),
             new FlatProgramChangeEvent(0, 0, info.primaryChannel, info.program),
 
-            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 96),
+            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -1199,7 +1199,7 @@ describe('MidiFileGeneratorTest', () => {
         const note1: Note = score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes[0];
         const expectedEvents: FlatMidiEvent[] = [
             // channel init
-            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -1210,7 +1210,7 @@ describe('MidiFileGeneratorTest', () => {
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.BankSelectFine, 0),
             new FlatProgramChangeEvent(0, 0, info.primaryChannel, info.program),
 
-            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -1368,7 +1368,7 @@ describe('MidiFileGeneratorTest', () => {
 
         const expectedEvents: FlatMidiEvent[] = [
             // channel init
-            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -1379,7 +1379,7 @@ describe('MidiFileGeneratorTest', () => {
             new FlatControlChangeEvent(0, 0, info.primaryChannel, ControllerType.BankSelectFine, 0),
             new FlatProgramChangeEvent(0, 0, info.primaryChannel, info.program),
 
-            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.PanCoarse, 64),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.ExpressionControllerCoarse, 127),
             new FlatControlChangeEvent(0, 0, info.secondaryChannel, ControllerType.RegisteredParameterFine, 0),
@@ -1548,23 +1548,23 @@ describe('MidiFileGeneratorTest', () => {
             new FlatControlChangeEvent(960, 0, info.primaryChannel, ControllerType.VolumeCoarse, 0),
             new FlatControlChangeEvent(960, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 0),
 
-            new FlatControlChangeEvent(1080, 0, info.primaryChannel, ControllerType.VolumeCoarse, 19),
-            new FlatControlChangeEvent(1080, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 19),
+            new FlatControlChangeEvent(1080, 0, info.primaryChannel, ControllerType.VolumeCoarse, 20),
+            new FlatControlChangeEvent(1080, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 20),
 
-            new FlatControlChangeEvent(1200, 0, info.primaryChannel, ControllerType.VolumeCoarse, 38),
-            new FlatControlChangeEvent(1200, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 38),
+            new FlatControlChangeEvent(1200, 0, info.primaryChannel, ControllerType.VolumeCoarse, 40),
+            new FlatControlChangeEvent(1200, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 40),
 
-            new FlatControlChangeEvent(1320, 0, info.primaryChannel, ControllerType.VolumeCoarse, 56),
-            new FlatControlChangeEvent(1320, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 56),
+            new FlatControlChangeEvent(1320, 0, info.primaryChannel, ControllerType.VolumeCoarse, 60),
+            new FlatControlChangeEvent(1320, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 60),
 
-            new FlatControlChangeEvent(1440, 0, info.primaryChannel, ControllerType.VolumeCoarse, 75),
-            new FlatControlChangeEvent(1440, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 75),
+            new FlatControlChangeEvent(1440, 0, info.primaryChannel, ControllerType.VolumeCoarse, 79),
+            new FlatControlChangeEvent(1440, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 79),
 
-            new FlatControlChangeEvent(1560, 0, info.primaryChannel, ControllerType.VolumeCoarse, 94),
-            new FlatControlChangeEvent(1560, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 94),
+            new FlatControlChangeEvent(1560, 0, info.primaryChannel, ControllerType.VolumeCoarse, 99),
+            new FlatControlChangeEvent(1560, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 99),
 
-            new FlatControlChangeEvent(1728, 0, info.primaryChannel, ControllerType.VolumeCoarse, 120),
-            new FlatControlChangeEvent(1728, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 120)
+            new FlatControlChangeEvent(1728, 0, info.primaryChannel, ControllerType.VolumeCoarse, 127),
+            new FlatControlChangeEvent(1728, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 127)
         ];
 
         const handler: FlatMidiEventGenerator = new FlatMidiEventGenerator();
@@ -1586,23 +1586,23 @@ describe('MidiFileGeneratorTest', () => {
 
         const info: PlaybackInformation = score.tracks[0].playbackInfo;
         const expectedEvents: FlatMidiEvent[] = [
-            new FlatControlChangeEvent(960, 0, info.primaryChannel, ControllerType.VolumeCoarse, 120),
-            new FlatControlChangeEvent(960, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(960, 0, info.primaryChannel, ControllerType.VolumeCoarse, 127),
+            new FlatControlChangeEvent(960, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 127),
 
-            new FlatControlChangeEvent(1080, 0, info.primaryChannel, ControllerType.VolumeCoarse, 101),
-            new FlatControlChangeEvent(1080, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 101),
+            new FlatControlChangeEvent(1080, 0, info.primaryChannel, ControllerType.VolumeCoarse, 107),
+            new FlatControlChangeEvent(1080, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 107),
 
-            new FlatControlChangeEvent(1200, 0, info.primaryChannel, ControllerType.VolumeCoarse, 83),
-            new FlatControlChangeEvent(1200, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 83),
+            new FlatControlChangeEvent(1200, 0, info.primaryChannel, ControllerType.VolumeCoarse, 87),
+            new FlatControlChangeEvent(1200, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 87),
 
-            new FlatControlChangeEvent(1320, 0, info.primaryChannel, ControllerType.VolumeCoarse, 64),
-            new FlatControlChangeEvent(1320, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 64),
+            new FlatControlChangeEvent(1320, 0, info.primaryChannel, ControllerType.VolumeCoarse, 67),
+            new FlatControlChangeEvent(1320, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 67),
 
-            new FlatControlChangeEvent(1440, 0, info.primaryChannel, ControllerType.VolumeCoarse, 45),
-            new FlatControlChangeEvent(1440, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 45),
+            new FlatControlChangeEvent(1440, 0, info.primaryChannel, ControllerType.VolumeCoarse, 48),
+            new FlatControlChangeEvent(1440, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 48),
 
-            new FlatControlChangeEvent(1560, 0, info.primaryChannel, ControllerType.VolumeCoarse, 26),
-            new FlatControlChangeEvent(1560, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 26),
+            new FlatControlChangeEvent(1560, 0, info.primaryChannel, ControllerType.VolumeCoarse, 28),
+            new FlatControlChangeEvent(1560, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 28),
 
             new FlatControlChangeEvent(1728, 0, info.primaryChannel, ControllerType.VolumeCoarse, 0),
             new FlatControlChangeEvent(1728, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 0)
@@ -1631,24 +1631,24 @@ describe('MidiFileGeneratorTest', () => {
             new FlatControlChangeEvent(960, 0, info.primaryChannel, ControllerType.VolumeCoarse, 0),
             new FlatControlChangeEvent(960, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 0),
 
-            new FlatControlChangeEvent(1080, 0, info.primaryChannel, ControllerType.VolumeCoarse, 38),
-            new FlatControlChangeEvent(1080, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 38),
+            new FlatControlChangeEvent(1080, 0, info.primaryChannel, ControllerType.VolumeCoarse, 40),
+            new FlatControlChangeEvent(1080, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 40),
 
-            new FlatControlChangeEvent(1200, 0, info.primaryChannel, ControllerType.VolumeCoarse, 75),
-            new FlatControlChangeEvent(1200, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 75),
+            new FlatControlChangeEvent(1200, 0, info.primaryChannel, ControllerType.VolumeCoarse, 79),
+            new FlatControlChangeEvent(1200, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 79),
 
-            new FlatControlChangeEvent(1344, 0, info.primaryChannel, ControllerType.VolumeCoarse, 120),
-            new FlatControlChangeEvent(1344, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(1344, 0, info.primaryChannel, ControllerType.VolumeCoarse, 127),
+            new FlatControlChangeEvent(1344, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 127),
 
             // fade-out
-            new FlatControlChangeEvent(1440, 0, info.primaryChannel, ControllerType.VolumeCoarse, 120),
-            new FlatControlChangeEvent(1440, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 120),
+            new FlatControlChangeEvent(1440, 0, info.primaryChannel, ControllerType.VolumeCoarse, 127),
+            new FlatControlChangeEvent(1440, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 127),
 
-            new FlatControlChangeEvent(1560, 0, info.primaryChannel, ControllerType.VolumeCoarse, 83),
-            new FlatControlChangeEvent(1560, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 83),
+            new FlatControlChangeEvent(1560, 0, info.primaryChannel, ControllerType.VolumeCoarse, 87),
+            new FlatControlChangeEvent(1560, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 87),
 
-            new FlatControlChangeEvent(1680, 0, info.primaryChannel, ControllerType.VolumeCoarse, 45),
-            new FlatControlChangeEvent(1680, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 45),
+            new FlatControlChangeEvent(1680, 0, info.primaryChannel, ControllerType.VolumeCoarse, 48),
+            new FlatControlChangeEvent(1680, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 48),
 
             new FlatControlChangeEvent(1824, 0, info.primaryChannel, ControllerType.VolumeCoarse, 0),
             new FlatControlChangeEvent(1824, 0, info.secondaryChannel, ControllerType.VolumeCoarse, 0)
@@ -1673,7 +1673,7 @@ describe('MidiFileGeneratorTest', () => {
 
         const note = score.tracks[0].staves[0].bars[0].voices[0].beats[0].notes[0];
         const noteKey = note.realValue;
-        const noteVelocity = MidiUtils.dynamicToVelocity(note.dynamics, -1);
+        const noteVelocity = MidiUtils.dynamicToVelocity(note.dynamics) - MidiUtils.CompressedVelocityIncrement;
         const expectedEvents: FlatMidiEvent[] = [
             // Upper Mordent (shortened)
             new FlatNoteEvent(0, 0, 0, 60, noteKey, noteVelocity),

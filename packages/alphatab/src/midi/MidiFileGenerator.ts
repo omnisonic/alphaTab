@@ -135,6 +135,31 @@ export class MidiFileGenerator {
         this._score = score;
         this._settings = !settings ? new Settings() : settings;
         this._handler = handler;
+        this._volumeScale = MidiFileGenerator._computeVolumeScale(score);
+    }
+
+    /**
+     * Fixed (not user-configurable) track-volume normalization for synthesized playback.
+     * Guitar Pro faders default to ~0.8 and are often lower (0.5), which used to make
+     * every synth track several to ~20 dB quiet. Scale all track volumes so the loudest
+     * track of the score sits at full channel volume; relative balance between tracks
+     * (and volume automations/fades) is preserved.
+     */
+    private _volumeScale: number = 1;
+
+    private static _computeVolumeScale(score: Score): number {
+        let max = 0;
+        for (const track of score.tracks) {
+            if (track.playbackInfo.volume > max) {
+                max = track.playbackInfo.volume;
+            }
+        }
+        return max > 0 ? 16 / max : 1;
+    }
+
+    private _toChannelVolume(volume: number): number {
+        // clamp: _toChannelShort(16) yields 128, which is outside the 7-bit MIDI range
+        return Math.min(127, MidiFileGenerator._toChannelShort(Math.min(16, volume * this._volumeScale)));
     }
 
     /**
@@ -251,7 +276,7 @@ export class MidiFileGenerator {
                 : -track.staves[0].transpositionPitch;
         this.transpositionPitches.set(channel, transpositionPitch);
 
-        const volume: number = MidiFileGenerator._toChannelShort(playbackInfo.volume);
+        const volume: number = this._toChannelVolume(playbackInfo.volume);
         const balance: number = MidiFileGenerator._toChannelShort(playbackInfo.balance);
         this._handler.addControlChange(track.index, 0, channel, ControllerType.VolumeCoarse, volume);
         this._handler.addControlChange(track.index, 0, channel, ControllerType.PanCoarse, balance);
@@ -1156,7 +1181,8 @@ export class MidiFileGenerator {
             ornamentDurationFactor = noteDuration / MidiUtils.QuarterTime;
         }
 
-        velocity -= MidiUtils.VelocityIncrement;
+        // one dynamic step softer, in the compressed velocity range
+        velocity = Math.max(1, velocity - MidiUtils.CompressedVelocityIncrement);
 
         let totalOrnamentDuration = 0;
         for (let i = 0; i < ornamentNoteKeys.length; i++) {
@@ -1319,7 +1345,7 @@ export class MidiFileGenerator {
                     beatStart,
                     beatDuration,
                     0,
-                    MidiFileGenerator._toChannelShort(track.playbackInfo.volume)
+                    this._toChannelVolume(track.playbackInfo.volume)
                 );
                 break;
             case FadeType.FadeOut:
@@ -1327,7 +1353,7 @@ export class MidiFileGenerator {
                     track,
                     beatStart,
                     beatDuration,
-                    MidiFileGenerator._toChannelShort(track.playbackInfo.volume),
+                    this._toChannelVolume(track.playbackInfo.volume),
                     0
                 );
                 break;
@@ -1338,13 +1364,13 @@ export class MidiFileGenerator {
                     beatStart,
                     half,
                     0,
-                    MidiFileGenerator._toChannelShort(track.playbackInfo.volume)
+                    this._toChannelVolume(track.playbackInfo.volume)
                 );
                 this._generateFadeSteps(
                     track,
                     beatStart + half,
                     half,
-                    MidiFileGenerator._toChannelShort(track.playbackInfo.volume),
+                    this._toChannelVolume(track.playbackInfo.volume),
                     0
                 );
 
@@ -2359,7 +2385,7 @@ export class MidiFileGenerator {
                 );
                 break;
             case AutomationType.Volume:
-                const volume: number = MidiFileGenerator._toChannelShort(automation.value);
+                const volume: number = this._toChannelVolume(automation.value);
                 this._handler.addControlChange(
                     beat.voice.bar.staff.track.index,
                     beat.playbackStart + startMove,
@@ -2425,7 +2451,7 @@ export class MidiFileGenerator {
         this._handler.addTimeSignature(0, masterBar.timeSignatureNumerator, masterBar.timeSignatureDenominator);
         this._handler.addTempo(0, tempo);
 
-        const volumeCoarse: number = MidiFileGenerator._toChannelShort(volume);
+        const volumeCoarse: number = this._toChannelVolume(volume);
         this._handler.addControlChange(
             0,
             0,

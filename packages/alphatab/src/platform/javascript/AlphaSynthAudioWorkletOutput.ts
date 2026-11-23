@@ -302,7 +302,7 @@ export class AlphaSynthAudioWorkletOutput extends AlphaSynthWebAudioOutputBase {
         this.createSource(ctx);
         this.source!.start(0);
         this.source!.connect(worklet);
-        worklet.connect(ctx.destination);
+        worklet.connect(this.masterBus);
 
         for (const e of pendingEvents) {
             worklet.port.postMessage(e);

@@ -972,23 +972,23 @@ export class TinySoundFont implements IAudioSampleSynthesizer {
 
             case ControllerType.VolumeCoarse:
                 c.midiVolume = TypeConversions.int32ToUint16((c.midiVolume & 0x7f) | (controlValue << 7));
-                // Raising to the power of 3 seems to result in a decent sounding volume curve for MIDI
-                this.channelSetVolume(channel, Math.pow((c.midiVolume / 16383.0) * (c.midiExpression / 16383.0), 3.0));
+                // Squared (~40*log10) matches the SF2 default CC7/CC11 concave attenuation modulator (was ^3 upstream)
+                this.channelSetVolume(channel, Math.pow((c.midiVolume / 16383.0) * (c.midiExpression / 16383.0), 2.0));
                 return;
             case ControllerType.VolumeFine:
                 c.midiVolume = TypeConversions.int32ToUint16((c.midiVolume & 0x3f80) | controlValue);
-                // Raising to the power of 3 seems to result in a decent sounding volume curve for MIDI
-                this.channelSetVolume(channel, Math.pow((c.midiVolume / 16383.0) * (c.midiExpression / 16383.0), 3.0));
+                // Squared (~40*log10) matches the SF2 default CC7/CC11 concave attenuation modulator (was ^3 upstream)
+                this.channelSetVolume(channel, Math.pow((c.midiVolume / 16383.0) * (c.midiExpression / 16383.0), 2.0));
                 return;
             case ControllerType.ExpressionControllerCoarse:
                 c.midiExpression = TypeConversions.int32ToUint16((c.midiExpression & 0x7f) | (controlValue << 7));
-                // Raising to the power of 3 seems to result in a decent sounding volume curve for MIDI
-                this.channelSetVolume(channel, Math.pow((c.midiVolume / 16383.0) * (c.midiExpression / 16383.0), 3.0));
+                // Squared (~40*log10) matches the SF2 default CC7/CC11 concave attenuation modulator (was ^3 upstream)
+                this.channelSetVolume(channel, Math.pow((c.midiVolume / 16383.0) * (c.midiExpression / 16383.0), 2.0));
                 return;
             case ControllerType.ExpressionControllerFine:
                 c.midiExpression = TypeConversions.int32ToUint16((c.midiExpression & 0x3f80) | controlValue);
-                // Raising to the power of 3 seems to result in a decent sounding volume curve for MIDI
-                this.channelSetVolume(channel, Math.pow((c.midiVolume / 16383.0) * (c.midiExpression / 16383.0), 3.0));
+                // Squared (~40*log10) matches the SF2 default CC7/CC11 concave attenuation modulator (was ^3 upstream)
+                this.channelSetVolume(channel, Math.pow((c.midiVolume / 16383.0) * (c.midiExpression / 16383.0), 2.0));
                 return;
             case ControllerType.PanCoarse:
                 c.midiPan = TypeConversions.int32ToUint16((c.midiPan & 0x7f) | (controlValue << 7));

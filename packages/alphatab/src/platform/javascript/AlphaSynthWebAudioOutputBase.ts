@@ -182,9 +182,43 @@ export abstract class AlphaSynthWebAudioOutputBase implements ISynthOutput {
         }
     }
 
+    private _masterBus: AudioNode | null = null;
+
+    /**
+     * Fixed (not user-configurable) master-bus limiter for synthesized playback.
+     * Chords and multi-track ensembles sum well above a single note, so the
+     * synth output passes through a fast, high-ratio compressor before the
+     * speakers. Web Audio's DynamicsCompressorNode applies automatic makeup
+     * gain, so this also lifts the overall level a few dB; peaks stay below
+     * full scale. Tune these constants here only.
+     */
+    private static _createMasterBus(ctx: AudioContext): AudioNode {
+        try {
+            const limiter = ctx.createDynamicsCompressor();
+            limiter.threshold.value = -10;
+            limiter.knee.value = 6;
+            limiter.ratio.value = 12;
+            limiter.attack.value = 0.003;
+            limiter.release.value = 0.25;
+            limiter.connect(ctx.destination);
+            return limiter;
+        } catch (e) {
+            Logger.warning('WebAudio', `Could not create master limiter, using direct output: ${e}`);
+            return ctx.destination;
+        }
+    }
+
+    /**
+     * The node synthesized audio should connect to (master limiter -> destination).
+     */
+    protected get masterBus(): AudioNode {
+        return this._masterBus ?? this.context!.destination;
+    }
+
     public open(_bufferTimeInMilliseconds: number): void {
         this._patchIosSampleRate();
         this.context = WebAudioHelper.createAudioContext();
+        this._masterBus = AlphaSynthWebAudioOutputBase._createMasterBus(this.context);
         const ctx: any = this.context;
         if (ctx.state === 'suspended') {
             this._registerResumeHandler();
@@ -236,6 +270,8 @@ export abstract class AlphaSynthWebAudioOutputBase implements ISynthOutput {
 
     public destroy(): void {
         this.pause();
+        this._masterBus?.disconnect();
+        this._masterBus = null;
         this.context?.close();
         this.context = null;
         this._unregisterResumeHandler();
